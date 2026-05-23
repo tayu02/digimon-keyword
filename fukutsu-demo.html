@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>不屈の効果をわかりやすく解説</title>
+<style>
+  :root{
+    --bg:#08111f;
+    --text:#e9f1ff;
+    --muted:#9eb2d0;
+    --gold:#ffd56a;
+    --cyan:#4ad7ff;
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    background:radial-gradient(circle at top,#18263f,var(--bg) 62%);
+    color:var(--text);
+    overflow-x:hidden;
+  }
+
+  .wrap{
+    min-height:100%;
+    padding:12px;
+    display:grid;
+    place-items:center;
+  }
+
+  .scene{
+    width:min(700px,100%);
+    background:rgba(10,18,32,.86);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:20px;
+    padding:12px;
+    box-shadow:0 18px 50px rgba(0,0,0,.42);
+  }
+
+  /* ── ヘッダー ── */
+  .top{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    margin-bottom:10px;
+  }
+
+  .title{
+    font-size:17px;
+    font-weight:800;
+    line-height:1.25;
+  }
+
+  .sub{
+    color:var(--muted);
+    font-size:12px;
+    line-height:1.5;
+  }
+
+  /* ── ボタン ── */
+  .controls{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:8px;
+  }
+
+  button{
+    border:0;
+    border-radius:10px;
+    padding:7px 6px;
+    min-height:32px;
+    font-weight:700;
+    font-size:13px;
+    cursor:pointer;
+    color:var(--text);
+    background:#2a3d63;
+    transition:opacity .15s;
+  }
+
+  button:disabled{opacity:.35;cursor:default}
+
+  button.primary{
+    background:linear-gradient(90deg,#ff6a6a,#ff9c6a);
+  }
+
+  /* ── ボード ── */
+  .board{
+    background:rgba(17,27,46,.86);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:18px;
+    padding:12px;
+  }
+
+  .area-label{
+    font-size:11px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:8px;
+  }
+
+  /* ── バトルエリア ── */
+  .stack-zone{
+    position:relative;
+    height:340px;
+    display:grid;
+    place-items:center;
+  }
+
+  .card{
+    position:absolute;
+    width:min(210px,62vw);
+    aspect-ratio:63/88;
+    border-radius:16px;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 16px 28px rgba(0,0,0,.42);
+    background:#09111f;
+    transition:transform .35s ease, opacity .35s ease, filter .25s ease;
+  }
+
+  .card img{width:100%;height:100%;object-fit:cover;display:block}
+
+  .name-tag{
+    position:absolute;
+    left:0;right:0;top:0;
+    padding:7px 10px;
+    background:linear-gradient(180deg,rgba(0,0,0,.72),rgba(0,0,0,0));
+    font-size:13px;font-weight:800;
+    text-align:center;text-shadow:0 2px 4px #000;
+  }
+
+  .effect-badge{
+    position:absolute;
+    inset:auto 12px 12px 12px;
+    background:rgba(7,15,27,.8);
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:12px;
+    padding:8px 10px;
+    font-size:13px;line-height:1.45;
+    backdrop-filter:blur(6px);
+  }
+
+  /* ── トラッシュ ── */
+  .trash-zone{
+    margin-top:10px;
+    border-top:1px dashed rgba(255,255,255,.14);
+    padding-top:8px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    min-height:68px;
+  }
+
+  .trash-box{
+    width:64px;height:50px;
+    border-radius:10px;
+    background:linear-gradient(180deg,#313d50,#1a2232);
+    display:grid;place-items:center;
+    color:#dbe7ff;
+    border:1px solid rgba(255,255,255,.08);
+    font-weight:800;font-size:11px;
+    flex:0 0 auto;
+  }
+
+  .mini{
+    width:42px;height:58px;
+    border-radius:8px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.12);
+    box-shadow:0 8px 14px rgba(0,0,0,.32);
+    flex:0 0 auto;
+    opacity:0;pointer-events:none;
+    transition:opacity .3s ease, transform .3s ease, filter .3s ease, box-shadow .3s ease;
+  }
+
+  .mini img{width:100%;height:100%;object-fit:cover;display:block}
+
+  /* ── ボード内説明 ── */
+  .inline-log{
+    margin-top:10px;
+    border-top:1px solid rgba(255,255,255,.08);
+    padding-top:10px;
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+  }
+
+  .info-main{
+    padding:12px 14px;
+    border-radius:14px;
+    background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.09);
+    font-size:14px;line-height:1.6;
+    color:var(--text);
+  }
+
+  .info-main strong{
+    display:block;
+    font-size:12px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--gold);
+    margin-bottom:5px;
+  }
+
+  .info-guide{
+    padding:10px 14px;
+    border-radius:12px;
+    background:rgba(74,215,255,.05);
+    border:1px solid rgba(74,215,255,.13);
+    font-size:13px;line-height:1.55;
+    color:var(--muted);
+  }
+
+  .info-flow{
+    font-size:11px;
+    color:rgba(158,178,208,.5);
+    text-align:center;
+    padding:2px 0;
+    letter-spacing:.02em;
+  }
+
+  /* テキスト切り替えアニメ */
+  .fade-in{animation:fadeIn .22s ease both}
+  @keyframes fadeIn{
+    from{opacity:0;transform:translateY(5px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+
+  /* ── カードアニメ ── */
+  @keyframes shake{
+    0%,100%{transform:translateY(-22px) scale(1.03) translateX(0)}
+    25%{transform:translateY(-22px) scale(1.03) translateX(-5px)}
+    75%{transform:translateY(-22px) scale(1.03) translateX(5px)}
+  }
+  @keyframes fall{
+    0%{transform:translateY(-22px) scale(1.03);opacity:1;filter:none}
+    60%{opacity:.6}
+    100%{transform:translateY(200px) scale(.82);opacity:0;filter:blur(3px)}
+  }
+  @keyframes rise{
+    0%{transform:translateY(170px) scale(.84);opacity:0;filter:blur(2px)}
+    100%{transform:translateY(-22px) scale(1.03);opacity:1;filter:none}
+  }
+  @keyframes blink3{
+    0%  {filter:brightness(1.8) saturate(1.3);opacity:1}
+    14% {filter:brightness(.5) saturate(.8);opacity:.3}
+    28% {filter:brightness(1.8) saturate(1.3);opacity:1}
+    42% {filter:brightness(.5) saturate(.8);opacity:.3}
+    56% {filter:brightness(1.8) saturate(1.3);opacity:1}
+    72% {filter:brightness(.5) saturate(.8);opacity:.3}
+    100%{filter:brightness(1.8) saturate(1.3);opacity:1}
+  }
+  @keyframes pulse{
+    0%  {transform:translateY(-22px) scale(1.03);box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 20px rgba(255,214,106,.1),0 16px 28px rgba(0,0,0,.42)}
+    50% {transform:translateY(-22px) scale(1.03);box-shadow:0 0 0 3px rgba(255,255,255,.22),0 0 32px rgba(255,214,106,.5),0 16px 28px rgba(0,0,0,.42)}
+    100%{transform:translateY(-22px) scale(1.03);box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 20px rgba(255,214,106,.1),0 16px 28px rgba(0,0,0,.42)}
+  }
+
+  /* ── 不屈発動エフェクトオーバーレイ ── */
+  .fuku-overlay{
+    position:absolute;
+    inset:0;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    pointer-events:none;opacity:0;z-index:20;
+  }
+  .fuku-bg{
+    position:absolute;inset:0;
+    background:radial-gradient(ellipse at center,
+      rgba(255,255,255,.16) 0%,rgba(255,214,106,.12) 40%,rgba(0,0,0,0) 72%);
+    opacity:0;
+  }
+  .fuku-ring{
+    position:absolute;width:60px;height:60px;
+    border-radius:50%;border:2px solid rgba(255,214,106,.95);opacity:0;
+  }
+  .fuku-text{
+    position:relative;
+    font-size:clamp(26px,7vw,44px);font-weight:900;
+    letter-spacing:.12em;color:#fff;
+    text-shadow:0 0 20px rgba(255,214,106,.95),0 0 40px rgba(255,214,106,.6),0 2px 4px rgba(0,0,0,.8);
+    opacity:0;transform:scale(.7);
+  }
+  .fuku-sub{
+    position:relative;font-size:13px;font-weight:700;
+    letter-spacing:.18em;color:rgba(255,255,255,.75);
+    margin-top:6px;opacity:0;transform:translateY(6px);
+  }
+  @keyframes fukuBg{0%{opacity:0}30%{opacity:1}70%{opacity:1}100%{opacity:0}}
+  @keyframes fukuRing{0%{opacity:.9;transform:scale(.4)}100%{opacity:0;transform:scale(3.5)}}
+  @keyframes fukuText{
+    0%{opacity:0;transform:scale(.7)}20%{opacity:1;transform:scale(1.08)}
+    35%{transform:scale(1)}80%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1)}
+  }
+  @keyframes fukuSub{
+    0%{opacity:0;transform:translateY(6px)}25%{opacity:1;transform:translateY(0)}
+    80%{opacity:1}100%{opacity:0}
+  }
+
+
+    .stack-zone{height:380px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="scene">
+
+    <!-- ヘッダー -->
+    <div class="top">
+      <div>
+        <div class="title">不屈</div>
+        
+      </div>
+      <div class="controls">
+        <button id="prevBtn">前へ</button>
+        <button id="nextBtn" class="primary">次へ</button>
+        <button id="playBtn">再生</button>
+        <button id="resetBtn">リセット</button>
+      </div>
+    </div>
+
+    <!-- ボード -->
+    <div class="board">
+      <div class="area-label">Battle Area</div>
+
+      <!-- バトルエリア -->
+      <div class="stack-zone" id="battleArea">
+        <div class="card" id="megaCard">
+          <img src="https://tayu02.github.io/digimon-keyword/digimon/BT21-076.png" alt="メガログラウモン">
+        </div>
+        <div class="card" id="dinoCard">
+          <img src="https://tayu02.github.io/digimon-keyword/digimon/EX8-016.png" alt="ダイナモン">
+        </div>
+        <!-- 不屈発動エフェクトオーバーレイ -->
+        <div class="fuku-overlay" id="fukuOverlay">
+          <div class="fuku-bg" id="fukuBg"></div>
+          <div class="fuku-ring" id="fukuRing"></div>
+          <div class="fuku-text" id="fukuText">不屈発動</div>
+          <div class="fuku-sub" id="fukuSub">FORTITUDE</div>
+        </div>
+      </div>
+
+      <!-- トラッシュ -->
+      <div class="trash-zone" id="trashZone">
+        <div class="trash-box">Trash</div>
+        <div class="mini" id="miniMega">
+          <img src="https://tayu02.github.io/digimon-keyword/digimon/BT21-076.png" alt="メガログラウモン">
+        </div>
+        <div class="mini" id="miniDino">
+          <img src="https://tayu02.github.io/digimon-keyword/digimon/EX8-016.png" alt="ダイナモン">
+        </div>
+      </div>
+
+      <!-- ボード内説明 -->
+      <div class="inline-log">
+        <div class="info-main" id="infoMain">
+          <strong id="infoTitle"></strong>
+          <span id="infoText"></span>
+        </div>
+        <div class="info-guide" id="infoGuide"></div>
+        <div class="info-flow">処理の流れ：進化 → 消滅 → 消滅時効果の発動 → 不屈でバトルエリアへ復帰</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── 要素取得 ──────────────────────────────
+const megaCard  = document.getElementById("megaCard");
+const dinoCard  = document.getElementById("dinoCard");
+const miniMega  = document.getElementById("miniMega");
+const miniDino  = document.getElementById("miniDino");
+const fukuOverlay = document.getElementById("fukuOverlay");
+const fukuBg      = document.getElementById("fukuBg");
+const fukuRing    = document.getElementById("fukuRing");
+const fukuText    = document.getElementById("fukuText");
+const fukuSub     = document.getElementById("fukuSub");
+const infoTitle = document.getElementById("infoTitle");
+const infoText  = document.getElementById("infoText");
+const infoGuide = document.getElementById("infoGuide");
+const nextBtn   = document.getElementById("nextBtn");
+const prevBtn   = document.getElementById("prevBtn");
+const playBtn   = document.getElementById("playBtn");
+const resetBtn  = document.getElementById("resetBtn");
+
+// ── 状態管理 ──────────────────────────────
+let currentStep = 0;
+let isLocked    = false;
+let isPlaying   = false;
+const TOTAL_STEPS = 5;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// ── ステップテキスト ───────────────────────
+const stepData = [
+  {
+    title : "① 条件",
+    text  : "メガログラウモンの上にダイナモンを重ねて進化。不屈を持つダイナモンに進化元がいる状態です。",
+    guide : ""
+  },
+  {
+    title : "② 消滅",
+    text  : "ダイナモンが消滅しました。進化スタック全体がトラッシュへ送られるため、下にいたメガログラウモンも一緒にトラッシュへ行きます。",
+    guide : ""
+  },
+  {
+    title : "③ 消滅時効果の発動",
+    text  : "トラッシュに送られたメガログラウモンの消滅時効果が発動します。先に不屈を発動させてダイナモンをトラッシュからバトルエリアに出すと使えなくなります。",
+    guide : ""
+  },
+  {
+    title : "④ 不屈の発動",
+    text  : "続けて、ダイナモンには消滅時に進化元があったので、「不屈」が発動します。不屈とは、消滅したときにトラッシュからバトルエリアへ戻ってくる効果です。",
+    guide : ""
+  },
+  {
+    title : "⑤ 処理完了",
+    text  : "不屈の処理が終わりました。ダイナモンはトラッシュからバトルエリアへ登場したので、登場時効果が発揮されます。",
+    guide : ""
+  }
+];
+
+// ── テキスト更新（フェードイン付き） ─────────
+function updateText() {
+  const d = stepData[currentStep];
+  // フェードを一瞬外してから再付与してリトリガー
+  infoMain.classList.remove("fade-in");
+  infoGuide.classList.remove("fade-in");
+  void infoMain.offsetWidth;
+  infoTitle.textContent = d.title;
+  infoText.textContent  = d.text;
+  infoGuide.textContent = d.guide;
+  infoGuide.style.display = d.guide ? "" : "none";
+  infoMain.classList.add("fade-in");
+  infoGuide.classList.add("fade-in");
+}
+
+// ── カードスタイル管理 ────────────────────
+const MEGA_T = "translateY(26px) scale(.98)";
+const DINO_T = "translateY(-22px) scale(1.03)";
+const DINO_GLOW = "0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(255,214,106,.45),0 16px 28px rgba(0,0,0,.42)";
+
+function setCard(el, { visible=true, transform="", filter="", animation="none", boxShadow="" } = {}) {
+  el.style.opacity       = visible ? "1" : "0";
+  el.style.pointerEvents = visible ? "" : "none";
+  el.style.transform     = transform;
+  el.style.filter        = filter;
+  el.style.animation     = animation;
+  el.style.boxShadow     = boxShadow;
+  el.style.zIndex        = "";
+}
+
+function setMini(el, { visible=false, active=false } = {}) {
+  el.style.opacity       = visible ? "1" : "0";
+  el.style.pointerEvents = visible ? "" : "none";
+  el.style.transform     = visible ? "translateY(0) scale(1)" : "translateY(10px) scale(.88)";
+  el.style.animation     = "none";
+  el.style.filter        = (visible && active) ? "brightness(1.6) saturate(1.3)" : "";
+  el.style.boxShadow     = (visible && active) ? "0 0 0 2px rgba(255,255,255,.18),0 0 18px rgba(74,215,255,.7)" : "";
+}
+
+// ── 各ステップの確定状態 ───────────────────
+function applyStep0() {
+  setCard(megaCard, { visible:true, transform:MEGA_T });
+  setCard(dinoCard, { visible:true, transform:DINO_T, animation:"pulse 1.4s ease infinite", boxShadow:DINO_GLOW });
+  setMini(miniMega, { visible:false });
+  setMini(miniDino, { visible:false });
+}
+function applyStep1() {
+  setCard(megaCard, { visible:false, transform:MEGA_T });
+  setCard(dinoCard, { visible:false, transform:DINO_T });
+  setMini(miniMega, { visible:true,  active:false });
+  setMini(miniDino, { visible:true,  active:false });
+}
+function applyStep2() {
+  setCard(megaCard, { visible:false });
+  setCard(dinoCard, { visible:false });
+  setMini(miniMega, { visible:true, active:true });
+  setMini(miniDino, { visible:true, active:false });
+}
+function applyStep3() {
+  setCard(megaCard, { visible:false });
+  setCard(dinoCard, { visible:true, transform:DINO_T, animation:"pulse 1.4s ease infinite", boxShadow:DINO_GLOW });
+  setMini(miniMega, { visible:true,  active:false });
+  setMini(miniDino, { visible:false, active:false });
+}
+function applyStep4() { applyStep3(); }
+
+// ── アニメーション ────────────────────────
+
+async function animateStep1() {
+  dinoCard.style.animation = "shake .3s linear";
+  megaCard.style.animation = "shake .3s linear";
+  await sleep(320);
+  dinoCard.style.animation = "fall .5s ease forwards";
+  megaCard.style.animation = "fall .5s ease forwards";
+  await sleep(520);
+  applyStep1();
+}
+
+async function animateStep2() {
+  setCard(megaCard, { visible:false });
+  setCard(dinoCard, { visible:false });
+  setMini(miniMega, { visible:true, active:false });
+  setMini(miniDino, { visible:true, active:false });
+  await sleep(120);
+  miniMega.style.animation = "blink3 .9s linear 1";
+  await sleep(920);
+  applyStep2();
+}
+
+// ── 不屈発動エフェクト ────────────────────
+async function playFukuEffect() {
+  fukuOverlay.style.opacity = "1";
+  fukuBg.style.animation    = "none"; void fukuBg.offsetWidth;
+  fukuBg.style.animation    = "fukuBg 1.4s ease forwards";
+  fukuRing.style.animation  = "none"; void fukuRing.offsetWidth;
+  fukuRing.style.animation  = "fukuRing .9s ease-out forwards";
+  fukuText.style.animation  = "none"; void fukuText.offsetWidth;
+  fukuText.style.animation  = "fukuText 1.4s ease forwards";
+  fukuSub.style.animation   = "none"; void fukuSub.offsetWidth;
+  fukuSub.style.animation   = "fukuSub 1.4s ease forwards";
+  await sleep(1450);
+  fukuOverlay.style.opacity = "0";
+}
+
+async function animateStep3() {
+  setMini(miniMega, { visible:true, active:false });
+  setMini(miniDino, { visible:true, active:false });
+  await sleep(120);
+  miniDino.style.animation = "blink3 .9s linear 1";
+  await sleep(920);
+  setMini(miniDino, { visible:false });
+  // 不屈発動エフェクト（riseの直前）
+  await playFukuEffect();
+  // ダイナモンをバトルエリアへ rise
+  dinoCard.style.transition    = "none";
+  dinoCard.style.opacity       = "1";
+  dinoCard.style.transform     = "translateY(170px) scale(.84)";
+  dinoCard.style.filter        = "blur(2px)";
+  dinoCard.style.animation     = "none";
+  dinoCard.style.pointerEvents = "";
+  await sleep(30);
+  dinoCard.style.animation = "rise .55s ease forwards";
+  await sleep(570);
+  // forwardsで止まった位置のままpulseに切り替え（transform/opacityを触らない）
+  dinoCard.style.filter    = "none";
+  dinoCard.style.boxShadow = DINO_GLOW;
+  dinoCard.style.animation = "pulse 1.4s ease infinite";
+  setMini(miniMega, { visible:true, active:false });
+}
+
+// ── ステップ実行 ──────────────────────────
+async function goToStep(step, instant=false) {
+  currentStep = step;
+  updateText();
+  updateButtons();
+
+  if (instant) {
+    [applyStep0,applyStep1,applyStep2,applyStep3,applyStep4][step]();
+    return;
+  }
+
+  if (step === 0) { applyStep0(); return; }
+  if (step === 1) { await animateStep1(); return; }
+  if (step === 2) { await animateStep2(); return; }
+  if (step === 3) { await animateStep3(); return; }
+  if (step === 4) { applyStep4(); return; }
+}
+
+// ── ボタン ────────────────────────────────
+function updateButtons() {
+  prevBtn.disabled = currentStep === 0;
+  nextBtn.disabled = currentStep === TOTAL_STEPS - 1;
+  playBtn.disabled = currentStep === TOTAL_STEPS - 1;
+}
+
+nextBtn.addEventListener("click", async () => {
+  document.getElementById("board").scrollIntoView({behavior:"smooth", block:"start"});
+  if (isLocked || currentStep >= TOTAL_STEPS - 1) return;
+  isPlaying = false; isLocked = true;
+  await goToStep(currentStep + 1, false);
+  isLocked = false; updateButtons();
+});
+
+prevBtn.addEventListener("click", async () => {
+  if (isLocked || currentStep <= 0) return;
+  isPlaying = false; isLocked = true;
+  await goToStep(currentStep - 1, true);
+  isLocked = false; updateButtons();
+});
+
+playBtn.addEventListener("click", async () => {
+  document.getElementById("board").scrollIntoView({behavior:"smooth", block:"start"});
+  if (isLocked || isPlaying || currentStep >= TOTAL_STEPS - 1) return;
+  isPlaying = true;
+  while (isPlaying && currentStep < TOTAL_STEPS - 1) {
+    await sleep(1800);
+    if (!isPlaying) break;
+    isLocked = true;
+    await goToStep(currentStep + 1, false);
+    isLocked = false; updateButtons();
+  }
+  isPlaying = false;
+});
+
+resetBtn.addEventListener("click", async () => {
+  isPlaying = false; isLocked = false;
+  await goToStep(0, true);
+  updateButtons();
+});
+
+// ── 初期表示 ──────────────────────────────
+goToStep(0, true);
+</script>
+</body>
+</html>

@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>連携</title>
+<style>
+  :root{
+    --bg:#08111f;
+    --text:#e9f1ff;
+    --muted:#9eb2d0;
+    --gold:#ffd56a;
+    --cyan:#4ad7ff;
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    background:radial-gradient(circle at top,#18263f,var(--bg) 62%);
+    color:var(--text);
+    overflow-x:hidden;
+  }
+
+  .wrap{min-height:100%;padding:12px;display:grid;place-items:center}
+
+  .scene{
+    width:min(700px,100%);
+    background:rgba(10,18,32,.86);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:20px;
+    padding:12px;
+    box-shadow:0 18px 50px rgba(0,0,0,.42);
+  }
+
+  /* ── ヘッダー ── */
+  .top{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+  .title{font-size:17px;font-weight:800;line-height:1.25}
+  .sub{color:var(--muted);font-size:12px;line-height:1.5}
+
+  /* ── ボタン ── */
+  .controls{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  button{
+    border:0;border-radius:10px;
+    padding:5px 6px;min-height:26px;
+    font-weight:700;font-size:13px;
+    cursor:pointer;color:var(--text);
+    background:#2a3d63;transition:opacity .15s;
+  }
+  button:disabled{opacity:.35;cursor:default}
+  button.primary{background:linear-gradient(90deg,#ff6a6a,#ff9c6a)}
+
+  /* ── ボード ── */
+  .board{
+    background:rgba(17,27,46,.86);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:18px;
+    padding:12px;
+    position:relative;
+    overflow:hidden;
+  }
+  .area-label{
+    font-size:11px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--muted);margin-bottom:8px;
+  }
+
+  /* ── バトルエリア ── */
+  .battle-zone{
+    position:relative;
+    height:300px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:24px;
+  }
+
+  /* カードスロット */
+  .slot{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:min(150px,42vw);
+    aspect-ratio:63/88;
+    position:relative;
+  }
+
+  /* 共通カードスタイル */
+  .card{
+    position:absolute;
+    inset:0;
+    border-radius:14px;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 14px 26px rgba(0,0,0,.42);
+    background:#09111f;
+    transform-origin:center center;
+    transition:transform .45s cubic-bezier(.4,0,.2,1),
+                opacity .35s ease,
+                filter .25s ease,
+                box-shadow .3s ease;
+  }
+
+  .card img{width:100%;height:100%;object-fit:cover;display:block}
+
+  /* ── DP/Sアタックバッジ ── */
+  .buff-badges{
+    position:absolute;
+    top:-14px;
+    left:50%;
+    transform:translateX(-50%);
+    display:flex;
+    gap:6px;
+    pointer-events:none;
+    z-index:10;
+    white-space:nowrap;
+  }
+  .badge{
+    padding:4px 9px;
+    border-radius:20px;
+    font-size:12px;font-weight:900;
+    letter-spacing:.04em;
+    opacity:0;
+    transform:translateY(-8px) scale(.85);
+    transition:opacity .3s ease, transform .3s ease;
+  }
+  .badge.dp{
+    background:linear-gradient(135deg,#ff6a6a,#ff9c6a);
+    color:#fff;box-shadow:0 0 12px rgba(255,106,106,.55);
+  }
+  .badge.sa{
+    background:linear-gradient(135deg,#4ad7ff,#4a8fff);
+    color:#fff;box-shadow:0 0 12px rgba(74,215,255,.55);
+  }
+  .badge.show{opacity:1;transform:translateY(0) scale(1)}
+  @keyframes badgePop{
+    0%  {transform:translateY(-8px) scale(.75);opacity:0}
+    60% {transform:translateY(2px) scale(1.08);opacity:1}
+    100%{transform:translateY(0) scale(1);opacity:1}
+  }
+  .badge.pop{animation:badgePop .4s cubic-bezier(.4,0,.2,1) forwards}
+
+  /* ── 連携エフェクトオーバーレイ ── */
+  .renk-overlay{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    pointer-events:none;opacity:0;z-index:20;
+  }
+  .renk-bg{
+    position:absolute;inset:0;
+    background:radial-gradient(ellipse at center,
+      rgba(255,255,255,.18) 0%,rgba(74,215,255,.10) 40%,rgba(0,0,0,0) 72%);
+    opacity:0;
+  }
+  .renk-ring{
+    position:absolute;width:60px;height:60px;
+    border-radius:50%;border:2px solid rgba(255,255,255,.9);opacity:0;
+  }
+  .renk-text{
+    position:relative;
+    font-size:clamp(28px,8vw,48px);font-weight:900;
+    letter-spacing:.12em;color:#fff;
+    text-shadow:0 0 20px rgba(74,215,255,.9),0 0 40px rgba(74,215,255,.5),0 2px 4px rgba(0,0,0,.8);
+    opacity:0;transform:scale(.7);
+  }
+  .renk-sub{
+    position:relative;font-size:13px;font-weight:700;
+    letter-spacing:.18em;color:rgba(255,255,255,.75);
+    margin-top:6px;opacity:0;transform:translateY(6px);
+  }
+  @keyframes renkBg{0%{opacity:0}30%{opacity:1}70%{opacity:1}100%{opacity:0}}
+  @keyframes renkRing{0%{opacity:.9;transform:scale(.4)}100%{opacity:0;transform:scale(3.5)}}
+  @keyframes renkText{
+    0%{opacity:0;transform:scale(.7)}20%{opacity:1;transform:scale(1.08)}
+    35%{transform:scale(1)}80%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1)}
+  }
+  @keyframes renkSub{
+    0%{opacity:0;transform:translateY(6px)}25%{opacity:1;transform:translateY(0)}
+    80%{opacity:1}100%{opacity:0}
+  }
+
+  /* ── カードアニメ ── */
+  @keyframes cardGlow{
+    0%  {box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(255,214,106,.7),0 0 44px rgba(255,214,106,.35),0 14px 26px rgba(0,0,0,.42)}
+    50% {box-shadow:0 0 0 3px rgba(255,255,255,.2),0 0 34px rgba(255,214,106,.9),0 0 60px rgba(255,214,106,.5),0 14px 26px rgba(0,0,0,.42)}
+    100%{box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(255,214,106,.7),0 0 44px rgba(255,214,106,.35),0 14px 26px rgba(0,0,0,.42)}
+  }
+  @keyframes pulse{
+    0%  {box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(255,214,106,.7),0 0 44px rgba(255,214,106,.35),0 14px 26px rgba(0,0,0,.42)}
+    50% {box-shadow:0 0 0 3px rgba(255,255,255,.2),0 0 34px rgba(255,214,106,.9),0 0 60px rgba(255,214,106,.5),0 14px 26px rgba(0,0,0,.42)}
+    100%{box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(255,214,106,.7),0 0 44px rgba(255,214,106,.35),0 14px 26px rgba(0,0,0,.42)}
+  }
+  @keyframes cyanGlow{
+    0%  {box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(74,215,255,.7),0 0 44px rgba(74,215,255,.35),0 14px 26px rgba(0,0,0,.42)}
+    50% {box-shadow:0 0 0 3px rgba(255,255,255,.2),0 0 34px rgba(74,215,255,.9),0 0 60px rgba(74,215,255,.5),0 14px 26px rgba(0,0,0,.42)}
+    100%{box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(74,215,255,.7),0 0 44px rgba(74,215,255,.35),0 14px 26px rgba(0,0,0,.42)}
+  }
+  @keyframes rise{
+    0%{transform:translateY(60px) scale(.88);opacity:0;filter:blur(2px)}
+    100%{transform:translateY(0) scale(1);opacity:1;filter:none}
+  }
+  @keyframes shake{
+    0%,100%{transform:translateX(0)}
+    25%{transform:translateX(-4px)}
+    75%{transform:translateX(4px)}
+  }
+  @keyframes blink2{
+    0%  {filter:brightness(1.8) saturate(1.3);opacity:1}
+    20% {filter:brightness(.5);opacity:.3}
+    40% {filter:brightness(1.8) saturate(1.3);opacity:1}
+    60% {filter:brightness(.5);opacity:.3}
+    80% {filter:brightness(1.8) saturate(1.3);opacity:1}
+    100%{filter:brightness(1.8) saturate(1.3);opacity:1}
+  }
+
+  /* ── 説明パネル ── */
+  .inline-log{
+    margin-top:10px;border-top:1px solid rgba(255,255,255,.08);
+    padding-top:10px;display:flex;flex-direction:column;gap:7px;
+  }
+  .info-main{
+    padding:12px 14px;border-radius:14px;
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);
+    font-size:14px;line-height:1.6;color:var(--text);
+  }
+  .info-main strong{
+    display:block;font-size:12px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--gold);margin-bottom:5px;
+  }
+  .info-flow{
+    font-size:11px;color:rgba(158,178,208,.5);
+    text-align:center;padding:2px 0;letter-spacing:.02em;
+  }
+  .fade-in{animation:fadeIn .22s ease both}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+
+  @media(min-width:860px){
+
+
+    .battle-zone{height:340px}
+    .slot{width:min(170px,38vw)}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="scene">
+
+    <!-- ヘッダー -->
+    <div class="top">
+      <div>
+        <div class="title">連携</div>
+        
+      </div>
+      <div class="controls">
+        <button id="prevBtn">前へ</button>
+        <button id="nextBtn" class="primary">次へ</button>
+        <button id="playBtn">再生</button>
+        <button id="resetBtn">リセット</button>
+      </div>
+    </div>
+
+    <!-- ボード -->
+    <div class="board">
+      <div class="area-label">Battle Area</div>
+
+      <!-- バトルエリア -->
+      <div class="battle-zone" id="battleZone">
+
+        <!-- ガルゴモン側スロット（左） -->
+        <div class="slot" id="slotGarg">
+          <div class="card" id="gargCard" style="opacity:0">
+            <img src="https://tayu02.github.io/digimon-keyword/digimon/ST17-05.png" alt="ガルゴモン">
+          </div>
+        </div>
+
+        <!-- ケルビモン側スロット（右） -->
+        <div class="slot" id="slotKerb">
+          <!-- DP/Sアタックバッジ -->
+          <div class="buff-badges" id="buffBadges">
+            <div class="badge dp" id="badgeDp">DP+</div>
+            <div class="badge sa" id="badgeSa">Sアタック+1</div>
+          </div>
+          <!-- アンティラモン（進化元・下） -->
+          <div class="card" id="antiCard" style="opacity:0">
+            <img src="https://tayu02.github.io/digimon-keyword/digimon/EX6-034.png" alt="アンティラモン">
+          </div>
+          <!-- ケルビモン（進化先・上にズラして重ねる） -->
+          <div class="card" id="kerbCard" style="opacity:0">
+            <img src="https://tayu02.github.io/digimon-keyword/digimon/EX6-035.png" alt="ケルビモン">
+          </div>
+        </div>
+
+        <!-- 連携エフェクトオーバーレイ -->
+        <div class="renk-overlay" id="renkOverlay">
+          <div class="renk-bg" id="renkBg"></div>
+          <div class="renk-ring" id="renkRing"></div>
+          <div class="renk-text" id="renkText">連携発動</div>
+          <div class="renk-sub" id="renkSub">LINK EFFECT</div>
+        </div>
+      </div>
+
+      <!-- 説明パネル -->
+      <div class="inline-log">
+        <div class="info-main" id="infoMain">
+          <strong id="infoTitle"></strong>
+          <span id="infoText"></span>
+        </div>
+        <div class="info-flow">処理の流れ：登場 → 進化 → 進化時効果 → アタック宣言 → 連携発動 → レスト時効果</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── 要素取得 ──────────────────────────────
+const antiCard    = document.getElementById("antiCard");
+const kerbCard    = document.getElementById("kerbCard");
+const gargCard    = document.getElementById("gargCard");
+const renkOverlay = document.getElementById("renkOverlay");
+const renkBg      = document.getElementById("renkBg");
+const renkRing    = document.getElementById("renkRing");
+const renkText    = document.getElementById("renkText");
+const renkSub     = document.getElementById("renkSub");
+const badgeDp     = document.getElementById("badgeDp");
+const badgeSa     = document.getElementById("badgeSa");
+const infoMain    = document.getElementById("infoMain");
+const infoTitle   = document.getElementById("infoTitle");
+const infoText    = document.getElementById("infoText");
+const nextBtn     = document.getElementById("nextBtn");
+const prevBtn     = document.getElementById("prevBtn");
+const playBtn     = document.getElementById("playBtn");
+const resetBtn    = document.getElementById("resetBtn");
+
+// ── 状態管理 ──────────────────────────────
+let currentStep = 0;
+let isLocked    = false;
+let isPlaying   = false;
+const TOTAL     = 7;
+const sleep     = ms => new Promise(r => setTimeout(r, ms));
+
+// ── ケルビモンのスタック位置定数 ──────────
+// 横は揃え、縦だけ上にズラしてスタック表現
+const KERB_STACK = "translateY(-32px)";
+const KERB_REST  = "translateY(-32px) rotate(90deg)";
+
+// ── グロー定数 ────────────────────────────
+const GLOW_GOLD = "0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(255,214,106,.7),0 0 44px rgba(255,214,106,.35),0 14px 26px rgba(0,0,0,.42)";
+const GLOW_CYAN = "0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(74,215,255,.7),0 0 44px rgba(74,215,255,.35),0 14px 26px rgba(0,0,0,.42)";
+
+// ── ステップテキスト ───────────────────────
+const stepData = [
+  {
+    title: "① 条件",
+    text : "アンティラモンがバトルエリアにいます。連携を持つケルビモンに進化できる状態です。"
+  },
+  {
+    title: "② 進化",
+    text : "アンティラモンにケルビモンが進化しました。進化時効果が発動します。"
+  },
+  {
+    title: "③ 進化時効果",
+    text : "ケルビモンの進化時効果で、ガルゴモンがバトルエリアに登場しました。"
+  },
+  {
+    title: "④ アタック宣言",
+    text : "ケルビモンがアタックを宣言し、レスト状態になりました。"
+  },
+  {
+    title: "⑤ 連携発動",
+    text : "ケルビモンのアタック宣言に合わせて連携が発動。登場したばかりのデジモンでも対象にすることが可能で、レスト状態にさせる。"
+  },
+  {
+    title: "⑥ レスト時効果",
+    text : "レスト時効果を持つデジモンが連携でレストになった場合、効果は発動します。"
+  },
+  {
+    title: "⑦ 連携の効果",
+    text : "連携で自分のアクティブのデジモンをレストさせた時、このバトルの間のみレストしたデジモンのDPとSアタック+1を付与されます。"
+  }
+];
+
+// ── テキスト更新 ───────────────────────────
+function updateText() {
+  const d = stepData[currentStep];
+  infoMain.classList.remove("fade-in");
+  void infoMain.offsetWidth;
+  infoTitle.textContent = d.title;
+  infoText.textContent  = d.text;
+  infoMain.classList.add("fade-in");
+}
+
+// ── バッジ管理 ────────────────────────────
+function hideBadges() {
+  badgeDp.classList.remove("show","pop");
+  badgeSa.classList.remove("show","pop");
+  badgeDp.style.animation = "none";
+  badgeSa.style.animation = "none";
+}
+
+// ── カードスタイル管理 ────────────────────
+function setCard(el, { visible=true, transform="", filter="none", animation="none", boxShadow="", transition="" } = {}) {
+  el.style.opacity       = visible ? "1" : "0";
+  el.style.pointerEvents = visible ? "" : "none";
+  el.style.transform     = transform;
+  el.style.filter        = filter;
+  el.style.animation     = animation;
+  el.style.boxShadow     = boxShadow;
+  if (transition !== "") el.style.transition = transition;
+}
+
+// ── 確定状態 ──────────────────────────────
+
+function applyStep0() {
+  // アンティラモンのみ、ケルビモン・ガルゴモン非表示
+  setCard(antiCard, { visible:true,  transform:"",          animation:"pulse 1.4s ease infinite", boxShadow:GLOW_GOLD });
+  setCard(kerbCard, { visible:false, transform:KERB_STACK,  animation:"none" });
+  setCard(gargCard, { visible:false, transform:"",          animation:"none" });
+  renkOverlay.style.opacity = "0";
+  hideBadges();
+}
+
+function applyStep1() {
+  // アンティラモン＋ケルビモンがスタック、ケルビモンが光る
+  setCard(antiCard, { visible:true,  transform:"",         animation:"none",                       boxShadow:"" });
+  setCard(kerbCard, { visible:true,  transform:KERB_STACK, animation:"pulse 1.4s ease infinite",   boxShadow:GLOW_GOLD });
+  setCard(gargCard, { visible:false, transform:"",         animation:"none" });
+  renkOverlay.style.opacity = "0";
+  hideBadges();
+}
+
+function applyStep2() {
+  // ケルビモンだけ光る（進化時効果の発動元）、ガルゴモン登場済み
+  setCard(antiCard, { visible:true,  transform:"",         animation:"none",                       boxShadow:"" });
+  setCard(kerbCard, { visible:true,  transform:KERB_STACK, animation:"cardGlow 1.2s ease infinite",boxShadow:GLOW_GOLD });
+  setCard(gargCard, { visible:true,  transform:"",         animation:"none",                       boxShadow:"" });
+  renkOverlay.style.opacity = "0";
+  hideBadges();
+}
+
+function applyStep3() {
+  // ケルビモンだけレスト、アンティラモンは縦のまま
+  setCard(antiCard, { visible:true,  transform:"",        animation:"none", boxShadow:"" });
+  setCard(kerbCard, { visible:true,  transform:KERB_REST, animation:"none", boxShadow:"" });
+  setCard(gargCard, { visible:true,  transform:"",        animation:"none", boxShadow:"" });
+  renkOverlay.style.opacity = "0";
+  hideBadges();
+}
+
+function applyStep4() {
+  // ケルビモン・ガルゴモン両方レスト
+  setCard(antiCard, { visible:true,  transform:"",             animation:"none", boxShadow:"" });
+  setCard(kerbCard, { visible:true,  transform:KERB_REST,      animation:"none", boxShadow:"" });
+  setCard(gargCard, { visible:true,  transform:"rotate(90deg)",animation:"none", boxShadow:"" });
+  renkOverlay.style.opacity = "0";
+  hideBadges();
+}
+
+function applyStep5() {
+  // ガルゴモンが点滅（レスト時効果）
+  applyStep4();
+  gargCard.style.animation = "blink2 .9s linear 1 forwards";
+  gargCard.style.boxShadow = GLOW_CYAN;
+}
+
+function applyStep6() {
+  // バッジ表示
+  applyStep4();
+  badgeDp.classList.add("show");
+  badgeSa.classList.add("show");
+}
+
+// ── 連携エフェクト ────────────────────────
+async function playRenkEffect() {
+  renkOverlay.style.opacity = "1";
+  renkBg.style.animation    = "none"; void renkBg.offsetWidth;
+  renkBg.style.animation    = "renkBg 1.4s ease forwards";
+  renkRing.style.animation  = "none"; void renkRing.offsetWidth;
+  renkRing.style.animation  = "renkRing .9s ease-out forwards";
+  renkText.style.animation  = "none"; void renkText.offsetWidth;
+  renkText.style.animation  = "renkText 1.4s ease forwards";
+  renkSub.style.animation   = "none"; void renkSub.offsetWidth;
+  renkSub.style.animation   = "renkSub 1.4s ease forwards";
+  await sleep(1450);
+  renkOverlay.style.opacity = "0";
+}
+
+// ── アニメーション付きステップ ────────────
+
+async function animateStep1() {
+  // アンティラモンをshake
+  antiCard.style.animation = "shake .25s linear";
+  await sleep(260);
+  antiCard.style.animation = "none";
+  antiCard.style.boxShadow = "";
+  // ケルビモンがスタック位置へ滑り込む
+  kerbCard.style.opacity   = "1";
+  kerbCard.style.transform = "translateY(60px) scale(.9)";
+  kerbCard.style.filter    = "blur(2px)";
+  kerbCard.style.animation = "none";
+  await sleep(30);
+  kerbCard.style.transition = "transform .45s cubic-bezier(.4,0,.2,1), filter .35s ease";
+  kerbCard.style.transform  = KERB_STACK;
+  kerbCard.style.filter     = "none";
+  await sleep(460);
+  kerbCard.style.transition = "";
+  applyStep1();
+}
+
+async function animateStep2() {
+  // ガルゴモンがrise
+  gargCard.style.opacity   = "1";
+  gargCard.style.transform = "translateY(60px) scale(.88)";
+  gargCard.style.filter    = "blur(2px)";
+  gargCard.style.animation = "rise .5s ease forwards";
+  await sleep(520);
+  gargCard.style.filter = "none";
+  applyStep2();
+}
+
+async function animateStep3() {
+  // ケルビモンだけレスト回転（アンティラモンはそのまま）
+  kerbCard.style.animation  = "none";
+  kerbCard.style.transition = "transform .5s cubic-bezier(.4,0,.2,1)";
+  kerbCard.style.transform  = KERB_REST;
+  await sleep(520);
+  kerbCard.style.transition = "";
+  applyStep3();
+}
+
+async function animateStep4() {
+  // ケルビモンを光らせてから連携エフェクト
+  kerbCard.style.animation = "cardGlow 1.2s ease infinite";
+  kerbCard.style.boxShadow = GLOW_GOLD;
+  await playRenkEffect();
+  kerbCard.style.animation = "none";
+  kerbCard.style.boxShadow = "";
+  // ガルゴモンがレスト
+  gargCard.style.transition = "transform .5s cubic-bezier(.4,0,.2,1)";
+  gargCard.style.transform  = "rotate(90deg)";
+  await sleep(520);
+  gargCard.style.transition = "";
+  applyStep4();
+}
+
+async function animateStep5() {
+  gargCard.style.animation = "blink2 .9s linear 1";
+  await sleep(920);
+  applyStep5();
+}
+
+async function animateStep6() {
+  applyStep4();
+  await sleep(200);
+  badgeDp.classList.remove("show","pop"); void badgeDp.offsetWidth;
+  badgeDp.classList.add("pop");
+  await sleep(220);
+  badgeSa.classList.remove("show","pop"); void badgeSa.offsetWidth;
+  badgeSa.classList.add("pop");
+  await sleep(400);
+  applyStep6();
+}
+
+// ── ステップ実行 ──────────────────────────
+const applyFns = [applyStep0,applyStep1,applyStep2,applyStep3,applyStep4,applyStep5,applyStep6];
+
+async function goToStep(step, instant=false) {
+  currentStep = step;
+  updateText();
+  updateButtons();
+  if (instant) { applyFns[step](); return; }
+  if (step === 0) { applyStep0(); return; }
+  if (step === 1) { await animateStep1(); return; }
+  if (step === 2) { await animateStep2(); return; }
+  if (step === 3) { await animateStep3(); return; }
+  if (step === 4) { await animateStep4(); return; }
+  if (step === 5) { await animateStep5(); return; }
+  if (step === 6) { await animateStep6(); return; }
+}
+
+function updateButtons() {
+  prevBtn.disabled = currentStep === 0;
+  nextBtn.disabled = currentStep === TOTAL - 1;
+  playBtn.disabled = currentStep === TOTAL - 1;
+}
+
+nextBtn.addEventListener("click", async () => {
+  document.getElementById("board").scrollIntoView({behavior:"smooth", block:"start"});
+  if (isLocked || currentStep >= TOTAL - 1) return;
+  isPlaying = false; isLocked = true;
+  await goToStep(currentStep + 1, false);
+  isLocked = false; updateButtons();
+});
+
+prevBtn.addEventListener("click", async () => {
+  if (isLocked || currentStep <= 0) return;
+  isPlaying = false; isLocked = true;
+  await goToStep(currentStep - 1, true);
+  isLocked = false; updateButtons();
+});
+
+playBtn.addEventListener("click", async () => {
+  document.getElementById("board").scrollIntoView({behavior:"smooth", block:"start"});
+  if (isLocked || isPlaying || currentStep >= TOTAL - 1) return;
+  isPlaying = true;
+  while (isPlaying && currentStep < TOTAL - 1) {
+    await sleep(1800);
+    if (!isPlaying) break;
+    isLocked = true;
+    await goToStep(currentStep + 1, false);
+    isLocked = false; updateButtons();
+  }
+  isPlaying = false;
+});
+
+resetBtn.addEventListener("click", async () => {
+  isPlaying = false; isLocked = false;
+  await goToStep(0, true);
+  updateButtons();
+});
+
+goToStep(0, true);
+</script>
+</body>
+</html>

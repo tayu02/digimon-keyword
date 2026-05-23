@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>オーバークロック</title>
+<style>
+  :root{ --bg:#08111f; --text:#e9f1ff; --muted:#9eb2d0; --gold:#ffd56a; }
+  *{box-sizing:border-box} html,body{height:100%;margin:0}
+  body{
+    font-family:system-ui,-apple-system,sans-serif;
+    background:radial-gradient(circle at top,#18263f,var(--bg) 62%);
+    color:var(--text);overflow-x:hidden;
+  }
+  .wrap{min-height:100%;padding:12px;display:grid;place-items:center}
+  .scene{
+    width:min(700px,100%);
+    background:rgba(10,18,32,.86);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:20px;padding:12px;
+    box-shadow:0 18px 50px rgba(0,0,0,.42);
+  }
+  .top{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+  .title{font-size:17px;font-weight:800}
+  .controls{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  button{
+    border:0;border-radius:10px;padding:5px 6px;min-height:26px;
+    font-weight:700;font-size:13px;cursor:pointer;
+    color:var(--text);background:#2a3d63;transition:opacity .15s;
+  }
+  button:disabled{opacity:.35;cursor:default}
+  button.primary{background:linear-gradient(90deg,#ff6a6a,#ff9c6a)}
+
+  .board{
+    background:rgba(17,27,46,.86);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:18px;padding:12px;
+    position:relative;overflow:hidden;
+  }
+  .area-label{
+    font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:6px;
+  }
+  .my-area{
+    display:flex;justify-content:center;gap:20px;
+    padding:8px 0 4px;
+  }
+
+  .slot{
+    width:108px;height:151px;
+    position:relative;flex:0 0 auto;
+  }
+  .card{
+    position:absolute;inset:0;
+    border-radius:12px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 10px 20px rgba(0,0,0,.42);
+    background:#09111f;
+    transform-origin:center center;
+    transition:box-shadow .3s ease, filter .25s ease;
+  }
+  .card img{width:100%;height:100%;object-fit:cover;display:block}
+
+  .arrow-layer{
+    position:absolute;inset:0;
+    width:100%;height:100%;
+    pointer-events:none;z-index:10;
+    overflow:visible;
+  }
+
+  .fx-overlay{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    pointer-events:none;z-index:20;opacity:0;
+  }
+  .fx-bg{
+    position:absolute;inset:0;
+    background:radial-gradient(ellipse at center,
+      rgba(255,160,0,.2) 0%,rgba(255,160,0,.08) 45%,transparent 72%);
+    opacity:0;
+  }
+  .fx-ring{
+    position:absolute;width:56px;height:56px;
+    border-radius:50%;border:2px solid rgba(255,180,0,.95);opacity:0;
+  }
+  .fx-word{
+    position:relative;
+    font-size:clamp(24px,7vw,42px);font-weight:900;
+    letter-spacing:.08em;color:#fff;
+    text-shadow:0 0 24px rgba(255,180,0,1),0 0 48px rgba(255,180,0,.8),0 0 80px rgba(255,180,0,.5),0 2px 8px rgba(0,0,0,1);
+    opacity:0;transform:scale(.65);
+  }
+  .fx-sub{
+    position:relative;font-size:12px;font-weight:700;
+    letter-spacing:.2em;color:rgba(255,255,255,.7);
+    margin-top:6px;opacity:0;transform:translateY(8px);
+  }
+  @keyframes fxBg  {0%{opacity:0}25%{opacity:1}75%{opacity:1}100%{opacity:0}}
+  @keyframes fxRing {0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(4)}}
+  @keyframes fxWord {
+    0%{opacity:0;transform:scale(.65)}18%{opacity:1;transform:scale(1.1)}
+    32%{transform:scale(1)}78%{opacity:1}100%{opacity:0;transform:scale(1)}
+  }
+  @keyframes fxSub{
+    0%{opacity:0;transform:translateY(8px)}22%{opacity:1;transform:translateY(0)}
+    78%{opacity:1}100%{opacity:0}
+  }
+  @keyframes rise{
+    0%{transform:translateY(80px) scale(.88);opacity:0;filter:blur(2px)}
+    100%{transform:translateY(0);opacity:1;filter:none}
+  }
+  @keyframes fall{
+    0%{opacity:1;filter:none}
+    60%{opacity:.4}
+    100%{transform:translateY(60px) scale(.82);opacity:0;filter:blur(3px)}
+  }
+  @keyframes glowGold{
+    0%,100%{box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 20px rgba(255,214,106,.65),0 0 42px rgba(255,214,106,.3),0 10px 20px rgba(0,0,0,.42)}
+    50%    {box-shadow:0 0 0 3px rgba(255,255,255,.2) ,0 0 32px rgba(255,214,106,.9) ,0 0 58px rgba(255,214,106,.48),0 10px 20px rgba(0,0,0,.42)}
+  }
+  @keyframes glowOrange{
+    0%,100%{box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 20px rgba(255,160,0,.65),0 0 42px rgba(255,160,0,.3),0 10px 20px rgba(0,0,0,.42)}
+    50%    {box-shadow:0 0 0 3px rgba(255,255,255,.2) ,0 0 32px rgba(255,160,0,.9) ,0 0 58px rgba(255,160,0,.48),0 10px 20px rgba(0,0,0,.42)}
+  }
+  @keyframes blink{
+    0%,100%{filter:brightness(1.8) saturate(1.3);opacity:1}
+    33%,66%{filter:brightness(.45);opacity:.25}
+  }
+
+  .inline-log{
+    margin-top:10px;border-top:1px solid rgba(255,255,255,.08);
+    padding-top:10px;display:flex;flex-direction:column;gap:7px;
+  }
+  .info-box{
+    padding:12px 14px;border-radius:14px;
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);
+    font-size:14px;line-height:1.6;color:var(--text);
+  }
+  .info-box strong{
+    display:block;font-size:12px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--gold);margin-bottom:5px;
+  }
+  .info-flow{
+    font-size:11px;color:rgba(158,178,208,.45);
+    text-align:center;padding:2px 0;
+  }
+  .fade-in{animation:fadeIn .22s ease both}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+
+  @media(min-width:860px){
+    .top{flex-direction:row;justify-content:space-between;align-items:center}
+    .controls{width:min(340px,100%)}
+  }
+</style>
+</head>
+<body>
+<div class="wrap"><div class="scene">
+
+  <div class="top">
+    <div class="title">オーバークロック</div>
+    <div class="controls">
+      <button id="prevBtn">前へ</button>
+      <button id="nextBtn" class="primary">次へ</button>
+      <button id="playBtn">再生</button>
+      <button id="resetBtn">リセット</button>
+    </div>
+  </div>
+
+  <div class="board" id="board">
+    <div class="area-label">自分のバトルエリア</div>
+    <div class="my-area">
+
+      <!-- サンドリモンスタック -->
+      <div class="slot">
+        <div class="card" id="shapCard">
+          <img src="https://tayu02.github.io/digimon-keyword/digimon/ST19-11.png" alt="">
+        </div>
+        <div class="card" id="sandCard" style="opacity:0">
+          <img src="https://tayu02.github.io/digimon-keyword/digimon/EX7-030.png" alt="">
+        </div>
+      </div>
+
+      <!-- 使い魔トークン -->
+      <div class="slot">
+        <div class="card" id="tokenCard" style="opacity:0">
+          <img src="https://tayu02.github.io/digimon-keyword/digimon/T—001.jpg" alt="">
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 矢印SVG -->
+    <svg class="arrow-layer" id="arrowSvg" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <defs>
+        <marker id="mhG" markerWidth="5" markerHeight="4" refX="5" refY="2" orient="auto">
+          <polygon points="0 0,5 2,0 4" fill="rgba(255,210,80,.92)"/>
+        </marker>
+      </defs>
+      <line id="arrPlayer"
+        stroke="rgba(255,210,80,.88)" stroke-width="1.1" stroke-dasharray="3.5 2.5"
+        marker-end="url(#mhG)" opacity="0" style="transition:opacity .3s ease"/>
+    </svg>
+
+    <!-- エフェクト -->
+    <div class="fx-overlay" id="fxOverlay">
+      <div class="fx-bg"   id="fxBg"></div>
+      <div class="fx-ring" id="fxRing"></div>
+      <div class="fx-word" id="fxWord">オーバークロック</div>
+      <div class="fx-sub"  id="fxSub">OVERCLOCK</div>
+    </div>
+
+    <!-- 説明 -->
+    <div class="inline-log">
+      <div class="info-box" id="infoBox">
+        <strong id="infoTitle"></strong>
+        <span   id="infoText"></span>
+      </div>
+      <div class="info-flow">
+        レスト状態で登場 → 進化 → トークン登場 → オーバークロック発動 → トークン消滅・アタック → バトル
+      </div>
+    </div>
+  </div>
+
+</div></div>
+
+<script>
+const board     = document.getElementById("board");
+const shapCard  = document.getElementById("shapCard");
+const sandCard  = document.getElementById("sandCard");
+const tokenCard = document.getElementById("tokenCard");
+const arrPlayer = document.getElementById("arrPlayer");
+const fxOverlay = document.getElementById("fxOverlay");
+const fxBg      = document.getElementById("fxBg");
+const fxRing    = document.getElementById("fxRing");
+const fxWord    = document.getElementById("fxWord");
+const fxSub     = document.getElementById("fxSub");
+const infoBox   = document.getElementById("infoBox");
+const infoTitle = document.getElementById("infoTitle");
+const infoText  = document.getElementById("infoText");
+const nextBtn   = document.getElementById("nextBtn");
+const prevBtn   = document.getElementById("prevBtn");
+const playBtn   = document.getElementById("playBtn");
+const resetBtn  = document.getElementById("resetBtn");
+
+let cur = 0, locked = false, playing = false;
+const TOTAL = 6;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// シャペロモンの状態
+const SHAP_REST   = "rotate(90deg)";   // レスト（初期）
+const SHAP_ACTIVE = "";                // アクティブ（進化後）
+
+// サンドリモンのレスト位置
+// 横向きの上辺がシャペロモン（アクティブ・縦）の上辺と揃う
+// H=151, W=108 → translateY(-(H-W)/2) = translateY(-21.5px) ≈ -22px
+const SAND_REST = "translateY(-22px) rotate(90deg)";
+
+const steps = [
+  { title:"① レスト状態で登場",
+    text :"シャペロモンがレスト状態でバトルエリアにいます。" },
+  { title:"② 進化",
+    text :"シャペロモンがアクティブ状態になり、レスト状態のサンドリモンに進化しました。レスト状態で進化するため、サンドリモンもレスト状態です。" },
+  { title:"③ 使い魔トークン登場",
+    text :"サンドリモンの進化時効果で使い魔トークンが1体登場しました。" },
+  { title:"④ オーバークロック発動",
+    text :"ターン終了時、オーバークロックが発動します。自分の盤面の指定されたデジモンを消滅させることで、レストもアクティブもせずにアタックができます。" },
+  { title:"⑤ トークン消滅・アタック",
+    text :"使い魔トークンを消滅させて、サンドリモンがレスト状態のまま相手プレイヤーへアタックします。" },
+  { title:"⑥ アタック時効果・バトル",
+    text :"アタック時効果が発動します。続けてカウンター・ブロックのタイミングを経てバトルになります。" },
+];
+
+const GOLD   = "0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(255,214,106,.7),0 0 44px rgba(255,214,106,.35),0 10px 20px rgba(0,0,0,.42)";
+const ORANGE = "0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(255,160,0,.7),0 0 44px rgba(255,160,0,.35),0 10px 20px rgba(0,0,0,.42)";
+
+// 矢印座標をDOMから動的計算
+function updateArrows() {
+  const br = board.getBoundingClientRect();
+  const sr = sandCard.getBoundingClientRect();
+  const sx = ((sr.left + sr.width  / 2) - br.left) / br.width  * 100;
+  const sy = ((sr.top  + sr.height / 2) - br.top)  / br.height * 100;
+  arrPlayer.setAttribute("x1", sx);
+  arrPlayer.setAttribute("y1", sy);
+  arrPlayer.setAttribute("x2", sx);
+  arrPlayer.setAttribute("y2", 3);
+}
+
+// 全カードを毎ステップ完全リセット
+function applyState({ shapT, shapA, shapSh, sandV, sandA, sandSh, tokenV, tokenA, tokenSh, ap } = {}) {
+  shapCard.style.transform = shapT   || SHAP_ACTIVE;
+  shapCard.style.animation = shapA   || "none";
+  shapCard.style.boxShadow = shapSh  || "";
+  shapCard.style.filter    = "none";
+  sandCard.style.opacity   = sandV   === false ? "0" : "1";
+  sandCard.style.transform = SAND_REST;
+  sandCard.style.animation = sandA   || "none";
+  sandCard.style.boxShadow = sandSh  || "";
+  sandCard.style.filter    = "none";
+  tokenCard.style.opacity  = tokenV  === false ? "0" : "1";
+  tokenCard.style.transform= "";
+  tokenCard.style.animation= tokenA  || "none";
+  tokenCard.style.boxShadow= tokenSh || "";
+  tokenCard.style.filter   = "none";
+  fxOverlay.style.opacity  = "0";
+
+  if (ap) {
+    requestAnimationFrame(() => { updateArrows(); arrPlayer.style.opacity = "1"; });
+  } else {
+    arrPlayer.style.opacity = "0";
+  }
+}
+
+// 各ステップの確定状態
+const S = [
+  // 0: シャペロモンだけレスト状態
+  () => {
+    shapCard.style.transform = SHAP_REST;
+    shapCard.style.animation = "none";
+    shapCard.style.boxShadow = "";
+    shapCard.style.filter    = "none";
+    sandCard.style.opacity   = "0";
+    tokenCard.style.opacity  = "0";
+    tokenCard.style.transform= "";
+    fxOverlay.style.opacity  = "0";
+    arrPlayer.style.opacity  = "0";
+  },
+  // 1: シャペロモンアクティブ＋サンドリモンレストで重なる
+  () => applyState({ sandV:true, sandA:"glowGold 1.4s ease infinite", sandSh:GOLD, tokenV:false }),
+  // 2: トークン登場
+  () => applyState({ sandV:true, sandA:"glowGold 1.4s ease infinite", sandSh:GOLD, tokenV:true, tokenA:"glowOrange 1.4s ease infinite", tokenSh:ORANGE }),
+  // 3: オーバークロック発動
+  () => applyState({ sandV:true, tokenV:true, tokenA:"glowOrange 1.4s ease infinite", tokenSh:ORANGE }),
+  // 4: トークン消滅・サンドリモンがレストのままアタック
+  () => applyState({ sandV:true, sandA:"glowGold 1.4s ease infinite", sandSh:GOLD, tokenV:false, ap:true }),
+  // 5: バトル
+  () => applyState({ sandV:true, sandA:"glowGold 1.4s ease infinite", sandSh:GOLD, tokenV:false, ap:true }),
+];
+
+function updateText() {
+  const d = steps[cur];
+  infoBox.classList.remove("fade-in");
+  void infoBox.offsetWidth;
+  infoTitle.textContent = d.title;
+  infoText.textContent  = d.text;
+  infoBox.classList.add("fade-in");
+}
+function updateBtns() {
+  prevBtn.disabled = cur === 0;
+  nextBtn.disabled = cur === TOTAL - 1;
+  playBtn.disabled = cur === TOTAL - 1;
+}
+
+async function playFx() {
+  fxOverlay.style.opacity = "1";
+  [fxBg, fxRing, fxWord, fxSub].forEach(el => { el.style.animation = "none"; void el.offsetWidth; });
+  fxBg.style.animation   = "fxBg   1.4s ease forwards";
+  fxRing.style.animation = "fxRing .85s ease-out forwards";
+  fxWord.style.animation = "fxWord 1.4s ease forwards";
+  fxSub.style.animation  = "fxSub  1.4s ease forwards";
+  await sleep(1450);
+  fxOverlay.style.opacity = "0";
+}
+
+async function runAnim(step) {
+  if (step === 0) { S[0](); return; }
+
+  if (step === 1) {
+    // シャペロモンをアクティブに戻しつつサンドリモンがスライドイン
+    shapCard.style.transition = "transform .4s ease";
+    shapCard.style.transform  = SHAP_ACTIVE;
+    await sleep(200);
+    shapCard.style.transition = "";
+    sandCard.style.opacity    = "1";
+    sandCard.style.transform  = "translateY(40px) rotate(90deg)";
+    sandCard.style.filter     = "blur(2px)";
+    sandCard.style.animation  = "none";
+    await sleep(30);
+    sandCard.style.transition = "transform .45s cubic-bezier(.4,0,.2,1), filter .35s ease";
+    sandCard.style.transform  = SAND_REST;
+    sandCard.style.filter     = "none";
+    await sleep(460);
+    sandCard.style.transition = "";
+    S[1]();
+    return;
+  }
+
+  if (step === 2) {
+    // トークンがriseで登場
+    tokenCard.style.opacity   = "1";
+    tokenCard.style.transform = "translateY(80px) scale(.88)";
+    tokenCard.style.filter    = "blur(2px)";
+    tokenCard.style.animation = "none";
+    await sleep(30);
+    tokenCard.style.animation = "rise .5s ease forwards";
+    await sleep(520);
+    tokenCard.style.filter    = "none";
+    tokenCard.style.transform = "";
+    S[2]();
+    return;
+  }
+
+  if (step === 3) {
+    // オーバークロックエフェクト
+    await playFx();
+    S[3]();
+    return;
+  }
+
+  if (step === 4) {
+    // トークンが点滅して消滅→矢印登場
+    tokenCard.style.animation = "blink .6s linear 1";
+    await sleep(620);
+    tokenCard.style.animation = "fall .5s ease forwards";
+    await sleep(520);
+    S[4]();
+    return;
+  }
+
+  if (step === 5) {
+    // サンドリモン点滅（アタック時効果）
+    sandCard.style.animation = "blink .8s linear 1";
+    sandCard.style.boxShadow = GOLD;
+    await sleep(820);
+    S[5]();
+    return;
+  }
+}
+
+async function goTo(step, instant = false) {
+  cur = step;
+  updateText();
+  updateBtns();
+  if (instant) { S[step](); return; }
+  await runAnim(step);
+}
+
+nextBtn.addEventListener("click", async () => {
+  document.getElementById("board").scrollIntoView({behavior:"smooth", block:"start"});
+  if (locked || cur >= TOTAL - 1) return;
+  playing = false; locked = true;
+  await goTo(cur + 1, false);
+  locked = false; updateBtns();
+});
+prevBtn.addEventListener("click", async () => {
+  if (locked || cur <= 0) return;
+  playing = false; locked = true;
+  await goTo(cur - 1, true);
+  locked = false; updateBtns();
+});
+playBtn.addEventListener("click", async () => {
+  document.getElementById("board").scrollIntoView({behavior:"smooth", block:"start"});
+  if (locked || playing || cur >= TOTAL - 1) return;
+  playing = true;
+  while (playing && cur < TOTAL - 1) {
+    await sleep(1800);
+    if (!playing) break;
+    locked = true;
+    await goTo(cur + 1, false);
+    locked = false; updateBtns();
+  }
+  playing = false;
+});
+resetBtn.addEventListener("click", async () => {
+  playing = false; locked = false;
+  await goTo(0, true); updateBtns();
+});
+
+window.addEventListener("resize", () => { if (cur >= 4) updateArrows(); });
+goTo(0, true);
+</script>
+</body>
+</html>

@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>突進</title>
+<style>
+  :root{ --bg:#08111f; --text:#e9f1ff; --muted:#9eb2d0; --gold:#ffd56a; }
+  *{box-sizing:border-box} html,body{height:100%;margin:0}
+  body{
+    font-family:system-ui,-apple-system,sans-serif;
+    background:radial-gradient(circle at top,#18263f,var(--bg) 62%);
+    color:var(--text);overflow-x:hidden;
+  }
+  .wrap{min-height:100%;padding:12px;display:grid;place-items:center}
+  .scene{
+    width:min(700px,100%);
+    background:rgba(10,18,32,.86);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:20px;padding:12px;
+    box-shadow:0 18px 50px rgba(0,0,0,.42);
+  }
+  .top{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+  .title{font-size:17px;font-weight:800}
+  .controls{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  button{
+    border:0;border-radius:10px;padding:5px 6px;min-height:26px;
+    font-weight:700;font-size:13px;cursor:pointer;
+    color:var(--text);background:#2a3d63;transition:opacity .15s;
+  }
+  button:disabled{opacity:.35;cursor:default}
+  button.primary{background:linear-gradient(90deg,#ff6a6a,#ff9c6a)}
+
+  .board{
+    background:rgba(17,27,46,.86);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:18px;padding:12px;
+    position:relative;overflow:hidden;
+  }
+  .area-label{
+    font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:6px;
+  }
+  .enemy-area{
+    display:flex;justify-content:center;gap:20px;
+    padding:8px 0 10px;
+    border-bottom:1px dashed rgba(255,255,255,.1);
+  }
+  .divider{text-align:center;font-size:11px;color:rgba(158,178,208,.35);padding:5px 0}
+  .my-area{display:flex;justify-content:center;padding:10px 0 4px}
+
+  .slot{
+    width:108px;height:151px;
+    position:relative;flex:0 0 auto;
+  }
+  .card{
+    position:absolute;inset:0;
+    border-radius:12px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 10px 20px rgba(0,0,0,.42);
+    background:#09111f;
+    transform-origin:center center;
+    transition:box-shadow .3s ease, filter .25s ease;
+  }
+  .card img{width:100%;height:100%;object-fit:cover;display:block}
+  .enemy .card img{transform:rotate(180deg)}
+
+  /* 矢印SVG */
+  .arrow-layer{
+    position:absolute;inset:0;
+    width:100%;height:100%;
+    pointer-events:none;z-index:10;
+    overflow:visible;
+  }
+
+  /* 突進エフェクト */
+  .fx-overlay{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    pointer-events:none;z-index:20;opacity:0;
+  }
+  .fx-bg{
+    position:absolute;inset:0;
+    background:radial-gradient(ellipse at center,
+      rgba(255,91,91,.2) 0%,rgba(255,91,91,.08) 45%,transparent 72%);
+    opacity:0;
+  }
+  .fx-ring{
+    position:absolute;width:56px;height:56px;
+    border-radius:50%;border:2px solid rgba(255,91,91,.95);opacity:0;
+  }
+  .fx-word{
+    position:relative;
+    font-size:clamp(28px,8vw,46px);font-weight:900;
+    letter-spacing:.14em;color:#fff;
+    text-shadow:0 0 20px rgba(255,91,91,.95),0 0 40px rgba(255,91,91,.6),0 2px 6px rgba(0,0,0,.9);
+    opacity:0;transform:scale(.65);
+  }
+  .fx-sub{
+    position:relative;font-size:12px;font-weight:700;
+    letter-spacing:.2em;color:rgba(255,255,255,.7);
+    margin-top:6px;opacity:0;transform:translateY(8px);
+  }
+  @keyframes fxBg  {0%{opacity:0}25%{opacity:1}75%{opacity:1}100%{opacity:0}}
+  @keyframes fxRing {0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(4)}}
+  @keyframes fxWord {
+    0%{opacity:0;transform:scale(.65)}18%{opacity:1;transform:scale(1.1)}
+    32%{transform:scale(1)}78%{opacity:1}100%{opacity:0;transform:scale(1)}
+  }
+  @keyframes fxSub{
+    0%{opacity:0;transform:translateY(8px)}22%{opacity:1;transform:translateY(0)}
+    78%{opacity:1}100%{opacity:0}
+  }
+
+  @keyframes glowGold{
+    0%,100%{box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 20px rgba(255,214,106,.65),0 0 42px rgba(255,214,106,.3),0 10px 20px rgba(0,0,0,.42)}
+    50%    {box-shadow:0 0 0 3px rgba(255,255,255,.2) ,0 0 32px rgba(255,214,106,.9) ,0 0 58px rgba(255,214,106,.48),0 10px 20px rgba(0,0,0,.42)}
+  }
+  @keyframes glowRed{
+    0%,100%{box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 20px rgba(255,91,91,.65),0 0 42px rgba(255,91,91,.3),0 10px 20px rgba(0,0,0,.42)}
+    50%    {box-shadow:0 0 0 3px rgba(255,255,255,.2) ,0 0 32px rgba(255,91,91,.9) ,0 0 58px rgba(255,91,91,.48),0 10px 20px rgba(0,0,0,.42)}
+  }
+  @keyframes blink{
+    0%,100%{filter:brightness(1.8) saturate(1.3);opacity:1}
+    33%,66%{filter:brightness(.45);opacity:.25}
+  }
+  @keyframes shakeX{
+    0%,100%{transform:translateY(-14px) translateX(0)}
+    25%    {transform:translateY(-14px) translateX(-5px)}
+    75%    {transform:translateY(-14px) translateX(5px)}
+  }
+
+  .inline-log{
+    margin-top:10px;border-top:1px solid rgba(255,255,255,.08);
+    padding-top:10px;display:flex;flex-direction:column;gap:7px;
+  }
+  .info-box{
+    padding:12px 14px;border-radius:14px;
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);
+    font-size:14px;line-height:1.6;color:var(--text);
+  }
+  .info-box strong{
+    display:block;font-size:12px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--gold);margin-bottom:5px;
+  }
+  .info-flow{
+    font-size:11px;color:rgba(158,178,208,.45);
+    text-align:center;padding:2px 0;
+  }
+  .fade-in{animation:fadeIn .22s ease both}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+
+  @media(min-width:860px){
+    .top{flex-direction:row;justify-content:space-between;align-items:center}
+    .controls{width:min(340px,100%)}
+  }
+</style>
+</head>
+<body>
+<div class="wrap"><div class="scene">
+
+  <div class="top">
+    <div class="title">突進</div>
+    <div class="controls">
+      <button id="prevBtn">前へ</button>
+      <button id="nextBtn" class="primary">次へ</button>
+      <button id="playBtn">再生</button>
+      <button id="resetBtn">リセット</button>
+    </div>
+  </div>
+
+  <div class="board" id="board">
+    <div class="area-label">相手のバトルエリア</div>
+    <div class="enemy-area">
+      <div class="slot enemy">
+        <div class="card" id="leoCard">
+          <img src="https://tayu02.github.io/digimon-keyword/digimon/BT4-061.png" alt="">
+        </div>
+      </div>
+      <div class="slot enemy">
+        <div class="card" id="stingCard">
+          <img src="https://tayu02.github.io/digimon-keyword/digimon/BT3-058.png" alt="">
+        </div>
+      </div>
+    </div>
+
+    <div class="divider">── VS ──</div>
+
+    <div class="area-label">自分のバトルエリア</div>
+    <div class="my-area">
+      <div class="slot">
+        <div class="card" id="duranCard">
+          <img src="https://tayu02.github.io/digimon-keyword/digimon/EX6-009.png" alt="">
+        </div>
+        <div class="card" id="dukeCard">
+          <img src="https://tayu02.github.io/digimon-keyword/digimon/BT12-018.png" alt="">
+        </div>
+      </div>
+    </div>
+
+    <!-- 矢印SVG -->
+    <svg class="arrow-layer" id="arrowSvg" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <defs>
+        <marker id="mhG" markerWidth="5" markerHeight="4" refX="5" refY="2" orient="auto">
+          <polygon points="0 0,5 2,0 4" fill="rgba(255,210,80,.92)"/>
+        </marker>
+        <marker id="mhR" markerWidth="5" markerHeight="4" refX="5" refY="2" orient="auto">
+          <polygon points="0 0,5 2,0 4" fill="rgba(255,91,91,.96)"/>
+        </marker>
+      </defs>
+      <line id="arrP"
+        stroke="rgba(255,210,80,.88)" stroke-width="1.1" stroke-dasharray="3.5 2.5"
+        marker-end="url(#mhG)" opacity="0" style="transition:opacity .3s ease"/>
+      <line id="arrL"
+        stroke="rgba(255,91,91,.94)" stroke-width="1.4"
+        marker-end="url(#mhR)" opacity="0" style="transition:opacity .3s ease"/>
+    </svg>
+
+    <!-- 突進エフェクト -->
+    <div class="fx-overlay" id="fxOverlay">
+      <div class="fx-bg"   id="fxBg"></div>
+      <div class="fx-ring" id="fxRing"></div>
+      <div class="fx-word" id="fxWord">突進</div>
+      <div class="fx-sub"  id="fxSub">ASSAULT ATTACK</div>
+    </div>
+
+    <!-- 説明 -->
+    <div class="inline-log">
+      <div class="info-box" id="infoBox">
+        <strong id="infoTitle"></strong>
+        <span   id="infoText"></span>
+      </div>
+      <div class="info-flow">
+        アタック宣言 → 突進 → 対象変化効果 → アタック時効果 → カウンター・ブロック → バトル
+      </div>
+    </div>
+  </div>
+
+</div></div>
+
+<script>
+// ── 要素 ──────────────────────────────────
+const board     = document.getElementById("board");
+const dukeCard  = document.getElementById("dukeCard");
+const duranCard = document.getElementById("duranCard");
+const leoCard   = document.getElementById("leoCard");
+const stingCard = document.getElementById("stingCard");
+const arrowSvg  = document.getElementById("arrowSvg");
+const arrP      = document.getElementById("arrP");
+const arrL      = document.getElementById("arrL");
+const fxOverlay = document.getElementById("fxOverlay");
+const fxBg      = document.getElementById("fxBg");
+const fxRing    = document.getElementById("fxRing");
+const fxWord    = document.getElementById("fxWord");
+const fxSub     = document.getElementById("fxSub");
+const infoBox   = document.getElementById("infoBox");
+const infoTitle = document.getElementById("infoTitle");
+const infoText  = document.getElementById("infoText");
+const nextBtn   = document.getElementById("nextBtn");
+const prevBtn   = document.getElementById("prevBtn");
+const playBtn   = document.getElementById("playBtn");
+const resetBtn  = document.getElementById("resetBtn");
+
+// ── 状態 ──────────────────────────────────
+let cur = 0, locked = false, playing = false;
+const TOTAL = 7;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// ── テキスト ──────────────────────────────
+const steps = [
+  { title:"① アタック宣言前",         text:"デュークモンがバトルエリアにいます。デュランダモンが進化元にいる状態です。" },
+  { title:"② アタック宣言",           text:"デュークモンがアタックを宣言し、レスト状態になりました。通常は相手プレイヤーへの直接攻撃です。" },
+  { title:"③ 突進発動",               text:"突進が発動します。相手のバトルエリアで最もDPが高いデジモンへ攻撃対象を変更します。バンチョーレオモンが対象になりました。" },
+  { title:"④ 攻撃対象変化による効果", text:"デュランダモンの攻撃対象変化による効果が発動します。" },
+  { title:"⑤ アタック時効果",         text:"デュークモンのアタック時効果が発動します。" },
+  { title:"⑥ カウンター・ブロック",   text:"相手のカウンターやブロックのタイミングです。" },
+  { title:"⑦ バトル",                 text:"デュークモンとバンチョーレオモンがバトルします。" },
+];
+
+// ── グロー ────────────────────────────────
+const GOLD = "0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(255,214,106,.7),0 0 44px rgba(255,214,106,.35),0 10px 20px rgba(0,0,0,.42)";
+const RED  = "0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(255,91,91,.7),0 0 44px rgba(255,91,91,.35),0 10px 20px rgba(0,0,0,.42)";
+
+// ── デュークモン位置 ──────────────────────
+const DUKE_NORMAL = "translateY(-14px)";
+const DUKE_REST   = "translateY(-22px) rotate(90deg)";
+
+// ── 矢印座標をDOMから動的計算 ─────────────
+function updateArrows() {
+  const br = board.getBoundingClientRect();
+  const dr = dukeCard.getBoundingClientRect();
+  const lr = leoCard.getBoundingClientRect();
+
+  // ボード座標系でのデュークモン中心
+  const dx = ((dr.left + dr.width  / 2) - br.left) / br.width  * 100;
+  const dy = ((dr.top  + dr.height / 2) - br.top)  / br.height * 100;
+
+  // レオモン中心
+  const lx = ((lr.left + lr.width  / 2) - br.left) / br.width  * 100;
+  const ly = ((lr.top  + lr.height / 2) - br.top)  / br.height * 100;
+
+  // プレイヤー方向（デュークモンの真上、ボード上端付近）
+  arrP.setAttribute("x1", dx); arrP.setAttribute("y1", dy);
+  arrP.setAttribute("x2", dx); arrP.setAttribute("y2", 3);
+
+  // レオモン中心へ
+  arrL.setAttribute("x1", dx); arrL.setAttribute("y1", dy);
+  arrL.setAttribute("x2", lx); arrL.setAttribute("y2", ly);
+}
+
+// ── 全カードを一括リセットして状態適用 ───
+function applyState({ dukeT, dukeA, dukeSh, duranA, duranSh, leoA, leoSh, ap, al } = {}) {
+  dukeCard.style.transform  = dukeT   || DUKE_NORMAL;
+  dukeCard.style.animation  = dukeA   || "none";
+  dukeCard.style.boxShadow  = dukeSh  || "";
+  dukeCard.style.filter     = "none";
+  duranCard.style.animation = duranA  || "none";
+  duranCard.style.boxShadow = duranSh || "";
+  duranCard.style.filter    = "none";
+  leoCard.style.animation   = leoA    || "none";
+  leoCard.style.boxShadow   = leoSh   || "";
+  leoCard.style.filter      = leoSh   ? "brightness(1.08)" : "none";
+  stingCard.style.animation = "none";
+  stingCard.style.boxShadow = "";
+  stingCard.style.filter    = "none";
+  fxOverlay.style.opacity   = "0";
+
+  // 矢印：レスト後は座標更新してから表示
+  if (ap || al) {
+    // レスト後のDOM位置が確定してから計算
+    requestAnimationFrame(() => {
+      updateArrows();
+      arrP.style.opacity = ap ? "1" : "0";
+      arrL.style.opacity = al ? "1" : "0";
+    });
+  } else {
+    arrP.style.opacity = "0";
+    arrL.style.opacity = "0";
+  }
+}
+
+// ── 各ステップの確定状態 ──────────────────
+const S = [
+  // 0: 誰も光らない
+  () => applyState({}),
+  // 1: デュークモン金色・矢印→プレイヤー
+  () => applyState({ dukeT:DUKE_REST, dukeA:"glowGold 1.4s ease infinite", dukeSh:GOLD, ap:true }),
+  // 2: レオモン赤く光る・矢印→レオモン
+  () => applyState({ dukeT:DUKE_REST, leoA:"glowRed 1.4s ease infinite", leoSh:RED, al:true }),
+  // 3: デュランダモンだけ光る
+  () => applyState({ dukeT:DUKE_REST, duranA:"glowGold 1.4s ease infinite", duranSh:GOLD, al:true }),
+  // 4: デュークモンだけ光る
+  () => applyState({ dukeT:DUKE_REST, dukeA:"glowGold 1.4s ease infinite", dukeSh:GOLD, al:true }),
+  // 5: 誰も光らない（カウンター）
+  () => applyState({ dukeT:DUKE_REST, al:true }),
+  // 6: デュークモン＋レオモン光る（バトル）
+  () => applyState({ dukeT:DUKE_REST, dukeA:"glowGold 1.4s ease infinite", dukeSh:GOLD, leoA:"glowRed 1.4s ease infinite", leoSh:RED, al:true }),
+];
+
+// ── テキスト更新 ──────────────────────────
+function updateText() {
+  const d = steps[cur];
+  infoBox.classList.remove("fade-in");
+  void infoBox.offsetWidth;
+  infoTitle.textContent = d.title;
+  infoText.textContent  = d.text;
+  infoBox.classList.add("fade-in");
+}
+function updateBtns() {
+  prevBtn.disabled = cur === 0;
+  nextBtn.disabled = cur === TOTAL - 1;
+  playBtn.disabled = cur === TOTAL - 1;
+}
+
+// ── 突進エフェクト ────────────────────────
+async function playFx() {
+  fxOverlay.style.opacity = "1";
+  [fxBg, fxRing, fxWord, fxSub].forEach(el => { el.style.animation = "none"; void el.offsetWidth; });
+  fxBg.style.animation   = "fxBg   1.4s ease forwards";
+  fxRing.style.animation = "fxRing .85s ease-out forwards";
+  fxWord.style.animation = "fxWord 1.4s ease forwards";
+  fxSub.style.animation  = "fxSub  1.4s ease forwards";
+  await sleep(1450);
+  fxOverlay.style.opacity = "0";
+}
+
+// ── アニメーション ────────────────────────
+async function runAnim(step) {
+  if (step === 0) { S[0](); return; }
+
+  if (step === 1) {
+    // shake → レスト回転 → 金色 → 矢印プレイヤー
+    dukeCard.style.animation = "shakeX .25s linear";
+    await sleep(260);
+    dukeCard.style.animation  = "none";
+    dukeCard.style.transition = "transform .5s cubic-bezier(.4,0,.2,1)";
+    dukeCard.style.transform  = DUKE_REST;
+    await sleep(520);
+    dukeCard.style.transition = "";
+    S[1]();
+    return;
+  }
+
+  if (step === 2) {
+    // 突進エフェクト → 矢印切替 → レオモン点滅
+    await playFx();
+    arrP.style.opacity = "0";
+    await sleep(150);
+    arrL.style.opacity = "1";
+    leoCard.style.animation = "blink .8s linear 1";
+    await sleep(820);
+    S[2]();
+    return;
+  }
+
+  if (step === 3) {
+    duranCard.style.animation = "blink .8s linear 1";
+    duranCard.style.boxShadow = GOLD;
+    await sleep(820);
+    S[3]();
+    return;
+  }
+
+  if (step === 4) {
+    dukeCard.style.animation = "blink .8s linear 1";
+    dukeCard.style.boxShadow = GOLD;
+    await sleep(820);
+    S[4]();
+    return;
+  }
+
+  if (step === 5) { S[5](); return; }
+
+  if (step === 6) {
+    dukeCard.style.animation = "blink .8s linear 1";
+    dukeCard.style.boxShadow = GOLD;
+    leoCard.style.animation  = "blink .8s linear 1";
+    leoCard.style.boxShadow  = RED;
+    await sleep(820);
+    S[6]();
+    return;
+  }
+}
+
+// ── ステップ実行 ──────────────────────────
+async function goTo(step, instant = false) {
+  cur = step;
+  updateText();
+  updateBtns();
+  if (instant) { S[step](); return; }
+  await runAnim(step);
+}
+
+// ── ボタン ────────────────────────────────
+nextBtn.addEventListener("click", async () => {
+  document.getElementById("board").scrollIntoView({behavior:"smooth", block:"start"});
+  if (locked || cur >= TOTAL - 1) return;
+  playing = false; locked = true;
+  await goTo(cur + 1, false);
+  locked = false; updateBtns();
+});
+prevBtn.addEventListener("click", async () => {
+  if (locked || cur <= 0) return;
+  playing = false; locked = true;
+  await goTo(cur - 1, true);
+  locked = false; updateBtns();
+});
+playBtn.addEventListener("click", async () => {
+  document.getElementById("board").scrollIntoView({behavior:"smooth", block:"start"});
+  if (locked || playing || cur >= TOTAL - 1) return;
+  playing = true;
+  while (playing && cur < TOTAL - 1) {
+    await sleep(1800);
+    if (!playing) break;
+    locked = true;
+    await goTo(cur + 1, false);
+    locked = false; updateBtns();
+  }
+  playing = false;
+});
+resetBtn.addEventListener("click", async () => {
+  playing = false; locked = false;
+  await goTo(0, true); updateBtns();
+});
+
+window.addEventListener("resize", () => { if (cur >= 1) updateArrows(); });
+
+goTo(0, true);
+</script>
+</body>
+</html>

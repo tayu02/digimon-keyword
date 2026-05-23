@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>進撃</title>
+<style>
+  :root{ --bg:#08111f; --text:#e9f1ff; --muted:#9eb2d0; --gold:#ffd56a; }
+  *{box-sizing:border-box} html,body{height:100%;margin:0}
+  body{
+    font-family:system-ui,-apple-system,sans-serif;
+    background:radial-gradient(circle at top,#18263f,var(--bg) 62%);
+    color:var(--text);overflow-x:hidden;
+  }
+  .wrap{min-height:100%;padding:12px;display:grid;place-items:center}
+  .scene{
+    width:min(700px,100%);
+    background:rgba(10,18,32,.86);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:20px;padding:12px;
+    box-shadow:0 18px 50px rgba(0,0,0,.42);
+  }
+  .top{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+  .title{font-size:17px;font-weight:800}
+  .controls{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  button{
+    border:0;border-radius:10px;padding:5px 6px;min-height:26px;
+    font-weight:700;font-size:13px;cursor:pointer;
+    color:var(--text);background:#2a3d63;transition:opacity .15s;
+  }
+  button:disabled{opacity:.35;cursor:default}
+  button.primary{background:linear-gradient(90deg,#ff6a6a,#ff9c6a)}
+
+  .board{
+    background:rgba(17,27,46,.86);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:18px;padding:12px;
+    position:relative;overflow:hidden;
+  }
+  .area-label{
+    font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:6px;
+  }
+  .my-area{
+    display:flex;justify-content:center;gap:20px;
+    padding:8px 0 4px;
+    min-height:170px;
+    align-items:center;
+  }
+
+  .slot{
+    width:108px;height:151px;
+    position:relative;flex:0 0 auto;
+  }
+  .card{
+    position:absolute;inset:0;
+    border-radius:12px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 10px 20px rgba(0,0,0,.42);
+    background:#09111f;
+    transform-origin:center center;
+    transition:box-shadow .3s ease, filter .25s ease;
+  }
+  .card img{width:100%;height:100%;object-fit:cover;display:block}
+
+  /* 矢印SVG */
+  .arrow-layer{
+    position:absolute;inset:0;
+    width:100%;height:100%;
+    pointer-events:none;z-index:10;
+    overflow:visible;
+  }
+
+  /* 進撃エフェクト（青） */
+  .fx-overlay{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    pointer-events:none;z-index:20;opacity:0;
+  }
+  .fx-bg{
+    position:absolute;inset:0;
+    background:radial-gradient(ellipse at center,
+      rgba(50,150,255,.2) 0%,rgba(50,150,255,.08) 45%,transparent 72%);
+    opacity:0;
+  }
+  .fx-ring{
+    position:absolute;width:56px;height:56px;
+    border-radius:50%;border:2px solid rgba(80,180,255,.95);opacity:0;
+  }
+  .fx-word{
+    position:relative;
+    font-size:clamp(28px,8vw,46px);font-weight:900;
+    letter-spacing:.12em;color:#fff;
+    text-shadow:0 0 24px rgba(80,180,255,1),0 0 48px rgba(80,180,255,.8),0 0 80px rgba(80,180,255,.5),0 2px 8px rgba(0,0,0,1);
+    opacity:0;transform:scale(.65);
+  }
+  .fx-sub{
+    position:relative;font-size:12px;font-weight:700;
+    letter-spacing:.2em;color:rgba(255,255,255,.7);
+    margin-top:6px;opacity:0;transform:translateY(8px);
+  }
+
+  /* 発動不可エフェクト（赤） */
+  .ng-overlay{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    pointer-events:none;z-index:20;opacity:0;
+  }
+  .ng-bg{
+    position:absolute;inset:0;
+    background:radial-gradient(ellipse at center,
+      rgba(255,60,60,.2) 0%,rgba(255,60,60,.08) 45%,transparent 72%);
+    opacity:0;
+  }
+  .ng-word{
+    position:relative;
+    font-size:clamp(22px,6vw,38px);font-weight:900;
+    letter-spacing:.08em;color:#fff;
+    text-shadow:0 0 24px rgba(255,60,60,1),0 0 48px rgba(255,60,60,.8),0 0 80px rgba(255,60,60,.5),0 2px 8px rgba(0,0,0,1);
+    opacity:0;transform:scale(.65);
+  }
+  .ng-sub{
+    position:relative;font-size:13px;font-weight:800;
+    letter-spacing:.12em;color:rgba(255,180,180,.9);
+    margin-top:8px;opacity:0;transform:translateY(8px);
+    text-align:center;line-height:1.5;
+  }
+
+  @keyframes fxBg  {0%{opacity:0}25%{opacity:1}75%{opacity:1}100%{opacity:0}}
+  @keyframes fxRing {0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(4)}}
+  @keyframes fxWord {
+    0%{opacity:0;transform:scale(.65)}18%{opacity:1;transform:scale(1.1)}
+    32%{transform:scale(1)}78%{opacity:1}100%{opacity:0;transform:scale(1)}
+  }
+  @keyframes fxSub{
+    0%{opacity:0;transform:translateY(8px)}22%{opacity:1;transform:translateY(0)}
+    78%{opacity:1}100%{opacity:0}
+  }
+  @keyframes ngWord{
+    0%{opacity:0;transform:scale(.65)}15%{opacity:1;transform:scale(1.15)}
+    30%{transform:scale(1)}100%{opacity:1;transform:scale(1)}
+  }
+  @keyframes ngSub{
+    0%{opacity:0;transform:translateY(8px)}20%{opacity:1;transform:translateY(0)}
+    100%{opacity:1}
+  }
+  @keyframes ngBg{0%{opacity:0}20%{opacity:1}100%{opacity:1}}
+
+  @keyframes evoRise{
+    0%{transform:translateY(-14px) translateY(50px) scale(.9);opacity:0;filter:blur(2px)}
+    100%{transform:translateY(-14px);opacity:1;filter:none}
+  }
+  @keyframes rise{
+    0%{transform:translateY(80px) scale(.88);opacity:0;filter:blur(2px)}
+    100%{transform:translateY(0);opacity:1;filter:none}
+  }
+  @keyframes glowGold{
+    0%,100%{box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 20px rgba(255,214,106,.65),0 0 42px rgba(255,214,106,.3),0 10px 20px rgba(0,0,0,.42)}
+    50%    {box-shadow:0 0 0 3px rgba(255,255,255,.2) ,0 0 32px rgba(255,214,106,.9) ,0 0 58px rgba(255,214,106,.48),0 10px 20px rgba(0,0,0,.42)}
+  }
+  @keyframes glowBlue{
+    0%,100%{box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 20px rgba(80,180,255,.65),0 0 42px rgba(80,180,255,.3),0 10px 20px rgba(0,0,0,.42)}
+    50%    {box-shadow:0 0 0 3px rgba(255,255,255,.2) ,0 0 32px rgba(80,180,255,.9) ,0 0 58px rgba(80,180,255,.48),0 10px 20px rgba(0,0,0,.42)}
+  }
+  @keyframes blink{
+    0%,100%{filter:brightness(1.8) saturate(1.3);opacity:1}
+    33%,66%{filter:brightness(.45);opacity:.25}
+  }
+
+  .inline-log{
+    margin-top:10px;border-top:1px solid rgba(255,255,255,.08);
+    padding-top:10px;display:flex;flex-direction:column;gap:7px;
+  }
+  .info-box{
+    padding:12px 14px;border-radius:14px;
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);
+    font-size:14px;line-height:1.6;color:var(--text);
+  }
+  .info-box strong{
+    display:block;font-size:12px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--gold);margin-bottom:5px;
+  }
+  .info-flow{
+    font-size:11px;color:rgba(158,178,208,.45);
+    text-align:center;padding:2px 0;
+  }
+  .fade-in{animation:fadeIn .22s ease both}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+
+  @media(min-width:860px){
+    .top{flex-direction:row;justify-content:space-between;align-items:center}
+    .controls{width:min(340px,100%)}
+  }
+</style>
+</head>
+<body>
+<div class="wrap"><div class="scene">
+
+  <div class="top">
+    <div class="title">進撃</div>
+    <div class="controls">
+      <button id="prevBtn">前へ</button>
+      <button id="nextBtn" class="primary">次へ</button>
+      <button id="playBtn">再生</button>
+      <button id="resetBtn">リセット</button>
+    </div>
+  </div>
+
+  <div class="board" id="board">
+
+    <div class="area-label" style="margin-top:6px">自分のバトルエリア</div>
+    <div class="my-area">
+
+      <!-- ウォーグレイモン＆オメガモンスタック -->
+      <div class="slot" id="slotOmega">
+        <div class="card" id="warCard">
+          <img src="https://tayu02.github.io/digimon-keyword/digimon/BT17-015.png" alt="">
+        </div>
+        <div class="card" id="omegaCard" style="opacity:0">
+          <img src="https://tayu02.github.io/digimon-keyword/digimon/BT5-086.png" alt="">
+        </div>
+      </div>
+
+      <!-- 八神太一（④の注意点パターンのみ登場） -->
+      <div class="slot" id="slotTai">
+        <div class="card" id="taiCard" style="opacity:0">
+          <img src="https://tayu02.github.io/digimon-keyword/digimon/BT21-102.png" alt="">
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 矢印SVG -->
+    <svg class="arrow-layer" id="arrowSvg" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <defs>
+        <marker id="mhB" markerWidth="5" markerHeight="4" refX="5" refY="2" orient="auto">
+          <polygon points="0 0,5 2,0 4" fill="rgba(80,180,255,.92)"/>
+        </marker>
+      </defs>
+      <line id="arrPlayer"
+        stroke="rgba(80,180,255,.88)" stroke-width="1.1" stroke-dasharray="3.5 2.5"
+        marker-end="url(#mhB)" opacity="0" style="transition:opacity .3s ease"/>
+    </svg>
+
+    <!-- 進撃エフェクト -->
+    <div class="fx-overlay" id="fxOverlay">
+      <div class="fx-bg"   id="fxBg"></div>
+      <div class="fx-ring" id="fxRing"></div>
+      <div class="fx-word" id="fxWord">進撃</div>
+      <div class="fx-sub"  id="fxSub">ASSAULT</div>
+    </div>
+
+    <!-- 発動不可エフェクト -->
+    <div class="ng-overlay" id="ngOverlay">
+      <div class="ng-bg"   id="ngBg"></div>
+      <div class="ng-word" id="ngWord">発動不可</div>
+      <div class="ng-sub"  id="ngSub">登場時効果・進化時効果に<br>内包された進撃のみ発動可能</div>
+    </div>
+
+    <!-- 説明 -->
+    <div class="inline-log">
+      <div class="info-box" id="infoBox">
+        <strong id="infoTitle"></strong>
+        <span   id="infoText"></span>
+      </div>
+      <div class="info-flow">
+        進化 → メモリー移動 → 進撃発動 → アタック → バトル ／ 注意：登場時効果後は発動不可
+      </div>
+    </div>
+  </div>
+
+</div></div>
+
+<script>
+const board      = document.getElementById("board");
+const warCard    = document.getElementById("warCard");
+const omegaCard  = document.getElementById("omegaCard");
+const taiCard    = document.getElementById("taiCard");
+const arrPlayer  = document.getElementById("arrPlayer");
+const fxOverlay  = document.getElementById("fxOverlay");
+const fxBg       = document.getElementById("fxBg");
+const fxRing     = document.getElementById("fxRing");
+const fxWord     = document.getElementById("fxWord");
+const fxSub      = document.getElementById("fxSub");
+const ngOverlay  = document.getElementById("ngOverlay");
+const ngBg       = document.getElementById("ngBg");
+const ngWord     = document.getElementById("ngWord");
+const ngSub      = document.getElementById("ngSub");
+const infoBox    = document.getElementById("infoBox");
+const infoTitle  = document.getElementById("infoTitle");
+const infoText   = document.getElementById("infoText");
+const nextBtn    = document.getElementById("nextBtn");
+const prevBtn    = document.getElementById("prevBtn");
+const playBtn    = document.getElementById("playBtn");
+const resetBtn   = document.getElementById("resetBtn");
+
+// 矢印座標をDOMから動的計算
+const TOTAL = 7;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const OMEGA_STACK = "translateY(-14px)";
+const OMEGA_REST  = "translateY(-22px) rotate(90deg)";
+const GOLD  = "0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(255,214,106,.7),0 0 44px rgba(255,214,106,.35),0 10px 20px rgba(0,0,0,.42)";
+const BLUE  = "0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(80,180,255,.7),0 0 44px rgba(80,180,255,.35),0 10px 20px rgba(0,0,0,.42)";
+
+const steps = [
+  { title:"① 初期状態",
+    text :"ウォーグレイモンがバトルエリアにいます。自分のターンでメモリーは自分側にあります。" },
+  { title:"② 進化",
+    text :"ウォーグレイモンからオメガモンに進化しました。進化コストによりメモリーが相手側に移動し、ターンが終了します。" },
+  { title:"③ 進撃発動",
+    text :"ターン終了時、オメガモンの進化時効果に内包された進撃が発動します。そのままアタックができます。" },
+  { title:"④ アタック・バトル",
+    text :"オメガモンが相手プレイヤーへアタックします。アタック時効果・カウンター・ブロックのタイミングを経てバトルになります。" },
+  { title:"⑤ 注意点（別パターン）",
+    text :"注意：進化後に登場時効果などで別のカードを登場させた場合、その時点で「進化時効果」の処理は終わっています。" },
+  { title:"⑥ 八神太一登場",
+    text :"八神太一を登場させました。これは進化時効果の処理が終わった後の行動です。この後に進撃は発動できません。" },
+  { title:"⑦ 発動不可",
+    text :"進撃は「進化時効果」または「登場時効果」に内包されているときのみ発動できます。それ以外のタイミングでは発動できません。" },
+];
+
+let cur = 0, locked = false, playing = false;
+
+// 矢印座標をDOMから動的計算
+function updateArrows() {
+  const br = board.getBoundingClientRect();
+  const or = omegaCard.getBoundingClientRect();
+  const ox = ((or.left + or.width  / 2) - br.left) / br.width  * 100;
+  const oy = ((or.top  + or.height / 2) - br.top)  / br.height * 100;
+  arrPlayer.setAttribute("x1", ox);
+  arrPlayer.setAttribute("y1", oy);
+  arrPlayer.setAttribute("x2", ox);
+  arrPlayer.setAttribute("y2", 3);
+}
+
+// 全カードを毎ステップ完全リセット
+function applyState({ warV, omegaV, omegaT, omegaA, omegaSh, taiV, ap, ng } = {}) {
+  warCard.style.opacity   = warV   === false ? "0" : "1";
+  warCard.style.animation = "none";
+  warCard.style.boxShadow = "";
+  warCard.style.filter    = "none";
+  warCard.style.transform = "";
+  omegaCard.style.opacity   = omegaV === false ? "0" : "1";
+  omegaCard.style.transform = omegaT || OMEGA_STACK;
+  omegaCard.style.animation = omegaA || "none";
+  omegaCard.style.boxShadow = omegaSh || "";
+  omegaCard.style.filter    = "none";
+  taiCard.style.opacity   = taiV   === false ? "0" : "1";
+  taiCard.style.animation = "none";
+  taiCard.style.boxShadow = "";
+  taiCard.style.filter    = "none";
+  taiCard.style.transform = "";
+  fxOverlay.style.opacity = "0";
+  ngOverlay.style.opacity = ng ? "1" : "0";
+  if (ng) {
+    ngBg.style.animation   = "ngBg 0s forwards";
+    ngBg.style.opacity     = "1";
+    ngWord.style.opacity   = "1";
+    ngWord.style.transform = "scale(1)";
+    ngSub.style.opacity    = "1";
+    ngSub.style.transform  = "translateY(0)";
+  }
+  if (ap) {
+    requestAnimationFrame(() => { updateArrows(); arrPlayer.style.opacity = "1"; });
+  } else {
+    arrPlayer.style.opacity = "0";
+  }
+}
+
+const S = [
+  // 0: ウォーグレイモンのみ・メモリー自分側
+  () => { applyState({ omegaV:false, taiV:false }); },
+  // 1: オメガモン進化・メモリー相手側
+  () => { applyState({ omegaV:true, omegaA:"glowGold 1.4s ease infinite", omegaSh:GOLD, taiV:false }); },
+  // 2: 進撃発動・オメガモンレスト・青く光る
+  () => { applyState({ omegaV:true, omegaT:OMEGA_REST, omegaA:"glowBlue 1.4s ease infinite", omegaSh:BLUE, taiV:false }); },
+  // 3: アタック・矢印→プレイヤー
+  () => { applyState({ omegaV:true, omegaT:OMEGA_REST, omegaA:"glowBlue 1.4s ease infinite", omegaSh:BLUE, taiV:false, ap:true }); },
+  // 4: 注意パターン開始・オメガモンアクティブに戻す
+  () => { applyState({ omegaV:true, omegaA:"glowGold 1.4s ease infinite", omegaSh:GOLD, taiV:false }); },
+  // 5: 八神太一登場
+  () => { applyState({ omegaV:true, omegaA:"glowGold 1.4s ease infinite", omegaSh:GOLD, taiV:true }); },
+  // 6: 発動不可
+  () => { applyState({ omegaV:true, taiV:true, ng:true }); },
+];
+
+function updateText() {
+  const d = steps[cur];
+  infoBox.classList.remove("fade-in");
+  void infoBox.offsetWidth;
+  infoTitle.textContent = d.title;
+  infoText.textContent  = d.text;
+  infoBox.classList.add("fade-in");
+}
+function updateBtns() {
+  prevBtn.disabled = cur === 0;
+  nextBtn.disabled = cur === TOTAL - 1;
+  playBtn.disabled = cur === TOTAL - 1;
+}
+
+async function playFx() {
+  fxOverlay.style.opacity = "1";
+  [fxBg, fxRing, fxWord, fxSub].forEach(el => { el.style.animation = "none"; void el.offsetWidth; });
+  fxBg.style.animation   = "fxBg   1.4s ease forwards";
+  fxRing.style.animation = "fxRing .85s ease-out forwards";
+  fxWord.style.animation = "fxWord 1.4s ease forwards";
+  fxSub.style.animation  = "fxSub  1.4s ease forwards";
+  await sleep(1450);
+  fxOverlay.style.opacity = "0";
+}
+
+async function playNg() {
+  ngOverlay.style.opacity = "1";
+  [ngBg, ngWord, ngSub].forEach(el => { el.style.animation = "none"; void el.offsetWidth; });
+  ngBg.style.animation   = "ngBg   .4s ease forwards";
+  ngWord.style.animation = "ngWord .5s ease forwards";
+  ngSub.style.animation  = "ngSub  .6s ease forwards";
+}
+
+// メモリーアニメーション（段階的に移動）
+
+async function runAnim(step) {
+  if (step === 0) { S[0](); return; }
+
+  if (step === 1) {
+    // オメガモンがスタック位置へ滑り込む＋メモリーが相手側へ
+    omegaCard.style.opacity   = "1";
+    omegaCard.style.transform = `${OMEGA_STACK} translateY(50px) scale(.9)`;
+    omegaCard.style.filter    = "blur(2px)";
+    omegaCard.style.animation = "none";
+    await sleep(30);
+    omegaCard.style.transition = "transform .45s cubic-bezier(.4,0,.2,1), filter .35s ease";
+    omegaCard.style.transform  = OMEGA_STACK;
+    omegaCard.style.filter     = "none";
+    await sleep(460);
+    omegaCard.style.transition = "";
+    S[1]();
+    return;
+  }
+
+  if (step === 2) {
+    // 進撃エフェクト→オメガモンレスト
+    await playFx();
+    omegaCard.style.transition = "transform .5s cubic-bezier(.4,0,.2,1)";
+    omegaCard.style.transform  = OMEGA_REST;
+    await sleep(520);
+    omegaCard.style.transition = "";
+    S[2]();
+    return;
+  }
+
+  if (step === 3) {
+    // オメガモン点滅→矢印
+    omegaCard.style.animation = "blink .8s linear 1";
+    omegaCard.style.boxShadow = BLUE;
+    await sleep(820);
+    S[3]();
+    return;
+  }
+
+  if (step === 4) {
+    // 注意パターン：矢印消して説明リセット
+    S[4]();
+    return;
+  }
+
+  if (step === 5) {
+    // 八神太一がriseで登場
+    taiCard.style.opacity   = "1";
+    taiCard.style.transform = "translateY(80px) scale(.88)";
+    taiCard.style.filter    = "blur(2px)";
+    taiCard.style.animation = "none";
+    await sleep(30);
+    taiCard.style.animation = "rise .5s ease forwards";
+    await sleep(520);
+    taiCard.style.filter    = "none";
+    taiCard.style.transform = "";
+    S[5]();
+    return;
+  }
+
+  if (step === 6) {
+    // 発動不可エフェクト
+    await playNg();
+    return;
+  }
+}
+
+async function goTo(step, instant = false) {
+  cur = step;
+  updateText();
+  updateBtns();
+  if (instant) { S[step](); return; }
+  await runAnim(step);
+}
+
+nextBtn.addEventListener("click", async () => {
+  document.getElementById("board").scrollIntoView({behavior:"smooth", block:"start"});
+  if (locked || cur >= TOTAL - 1) return;
+  playing = false; locked = true;
+  await goTo(cur + 1, false);
+  locked = false; updateBtns();
+});
+prevBtn.addEventListener("click", async () => {
+  if (locked || cur <= 0) return;
+  playing = false; locked = true;
+  await goTo(cur - 1, true);
+  locked = false; updateBtns();
+});
+playBtn.addEventListener("click", async () => {
+  document.getElementById("board").scrollIntoView({behavior:"smooth", block:"start"});
+  if (locked || playing || cur >= TOTAL - 1) return;
+  playing = true;
+  while (playing && cur < TOTAL - 1) {
+    await sleep(1800);
+    if (!playing) break;
+    locked = true;
+    await goTo(cur + 1, false);
+    locked = false; updateBtns();
+  }
+  playing = false;
+});
+resetBtn.addEventListener("click", async () => {
+  playing = false; locked = false;
+  await goTo(0, true); updateBtns();
+});
+
+window.addEventListener("resize", () => { if (cur >= 3) updateArrows(); });
+goTo(0, true);
+</script>
+</body>
+</html>
