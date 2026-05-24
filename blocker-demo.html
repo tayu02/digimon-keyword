@@ -260,7 +260,7 @@ const playBtn      = document.getElementById("playBtn");
 const resetBtn     = document.getElementById("resetBtn");
 
 let cur = 0, locked = false, playing = false;
-const TOTAL = 6;
+const TOTAL = 7;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const steps = [
@@ -270,6 +270,7 @@ const steps = [
   { title:"④ ブロッカー発動",         text:"クレニアムモンのブロッカーが発動します。クレニアムモンがレストして、攻撃対象をクレニアムモンに変更します。" },
   { title:"⑤ 対象変更時の効果",       text:"攻撃対象が変更されたことによる効果が発動します。" },
   { title:"⑥ バトル",                 text:"クレニアムモンとピエモンがバトルします。" },
+  { title:"⑦ ブロッカーの注意点",     text:"①相手に攻撃対象を変更されない効果を持つデジモンに対しては、ブロックの宣言自体ができません。ブロックは攻撃対象を変更する効果のためです。②ブロックはカードの効果ではないため、「効果でレストした時に発動する効果」はブロックでレストしても発動しません。" },
 ];
 
 const GOLD = "0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(255,214,106,.7),0 0 44px rgba(255,214,106,.35),0 10px 20px rgba(0,0,0,.42)";
