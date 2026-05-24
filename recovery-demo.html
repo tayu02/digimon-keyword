@@ -363,17 +363,18 @@ const S = [
   },
   () => {
     resetAll();
-    deathCard.style.opacity  = "1";
+    deathCard.style.opacity  = "0";
     jijiCard.style.opacity   = "0";
   },
   () => {
     resetAll();
-    deathCard.style.opacity  = "1";
+    deathCard.style.opacity  = "0";
     jijiCard.style.opacity   = "0";
     secNew.style.opacity     = "1";
     secNew.style.top         = "0px";
     sec1.style.top           = "14px";
     sec2.style.top           = "28px";
+    deckPile.style.opacity   = "0.5";
   },
 ];
 
@@ -433,13 +434,21 @@ async function runAnim(step) {
     await sleep(620);
     jijiCard.style.animation = "fallDown .5s ease forwards";
     await sleep(520);
+    // 凶弾フェードアウト
+    deathCard.style.transition = "opacity .4s ease";
+    deathCard.style.opacity    = "0";
+    await sleep(420);
+    deathCard.style.transition = "";
     S[1](); return;
   }
 
   if (step === 2) {
-    // リカバリーエフェクト→デッキから1枚がセキュリティへ
+    // リカバリーエフェクト→デッキが薄くなる→セキュリティに補充
     await playFxAnim();
-    // 既存セキュリティを下にずらしてsecNewをスライドイン
+    deckPile.style.transition = "opacity .4s ease";
+    deckPile.style.opacity    = "0.5";
+    await sleep(420);
+    deckPile.style.transition = "";
     sec1.style.top = "14px";
     sec2.style.top = "28px";
     secNew.style.transition = "opacity .4s ease, top .4s ease";
