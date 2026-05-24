@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>デコイ</title>
+<style>
+  :root{ --bg:#08111f; --text:#e9f1ff; --muted:#9eb2d0; --gold:#ffd56a; }
+  *{box-sizing:border-box} html,body{height:100%;margin:0}
+  body{
+    font-family:system-ui,-apple-system,sans-serif;
+    background:radial-gradient(circle at top,#18263f,var(--bg) 62%);
+    color:var(--text);overflow-x:hidden;
+  }
+  .wrap{min-height:100%;padding:12px;display:grid;place-items:center}
+  .scene{
+    width:min(700px,100%);
+    background:rgba(10,18,32,.86);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:20px;padding:12px;
+    box-shadow:0 18px 50px rgba(0,0,0,.42);
+  }
+  .top{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+  .title{font-size:17px;font-weight:800}
+  .controls{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  button{
+    border:0;border-radius:10px;padding:5px 6px;min-height:26px;
+    font-weight:700;font-size:13px;cursor:pointer;
+    color:var(--text);background:#2a3d63;transition:opacity .15s;
+  }
+  button:disabled{opacity:.35;cursor:default}
+  button.primary{background:linear-gradient(90deg,#ff6a6a,#ff9c6a)}
+
+  .board{
+    background:rgba(17,27,46,.86);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:18px;padding:12px;
+    position:relative;overflow:hidden;
+  }
+  .area-label{
+    font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:6px;
+  }
+  .enemy-area{
+    display:flex;justify-content:center;gap:16px;
+    padding:8px 0 10px;
+    border-bottom:1px dashed rgba(255,255,255,.1);
+    min-height:60px;align-items:flex-start;
+  }
+  .divider{text-align:center;font-size:11px;color:rgba(158,178,208,.35);padding:5px 0}
+  .my-area{
+    display:flex;justify-content:center;gap:16px;
+    padding:10px 0 4px;
+    min-height:160px;align-items:flex-start;
+  }
+
+  /* カード（通常フロー） */
+  .digi-card{
+    width:108px;height:151px;
+    flex:0 0 auto;
+    border-radius:12px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 10px 20px rgba(0,0,0,.42);
+    background:#09111f;
+    transform-origin:center center;
+    transition:box-shadow .3s ease, filter .25s ease, opacity .4s ease, transform .4s ease;
+  }
+  .digi-card img{width:100%;height:100%;object-fit:cover;display:block}
+  .enemy-card img{transform:rotate(180deg)}
+
+  /* オプションカード */
+  .option-card{
+    width:108px;height:151px;
+    flex:0 0 auto;
+    border-radius:12px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 10px 20px rgba(0,0,0,.42);
+    background:#09111f;
+    opacity:0;
+    transition:opacity .3s ease;
+  }
+  .option-card img{width:100%;height:100%;object-fit:cover;display:block;transform:rotate(180deg)}
+
+  /* エフェクト */
+  .fx-overlay,.death-overlay{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    pointer-events:none;z-index:20;opacity:0;
+  }
+  .fx-bg,.death-bg{position:absolute;inset:0;opacity:0;}
+  .fx-bg{background:radial-gradient(ellipse at center,rgba(180,100,255,.22) 0%,rgba(180,100,255,.08) 45%,transparent 72%);}
+  .death-bg{background:radial-gradient(ellipse at center,rgba(180,0,0,.25) 0%,rgba(180,0,0,.1) 45%,transparent 72%);}
+  .fx-ring,.death-ring{position:absolute;width:56px;height:56px;border-radius:50%;opacity:0;}
+  .fx-ring{border:2px solid rgba(180,100,255,.95);}
+  .death-ring{border:2px solid rgba(200,0,0,.95);}
+  .fx-word{
+    position:relative;font-size:clamp(28px,8vw,46px);font-weight:900;
+    letter-spacing:.12em;color:#fff;
+    text-shadow:0 0 24px rgba(180,100,255,1),0 0 48px rgba(180,100,255,.8),0 2px 8px rgba(0,0,0,1);
+    opacity:0;transform:scale(.65);
+  }
+  .death-word{
+    position:relative;font-size:clamp(18px,5vw,30px);font-weight:900;
+    letter-spacing:.06em;color:#fff;
+    text-shadow:0 0 24px rgba(200,0,0,1),0 0 48px rgba(200,0,0,.8),0 2px 8px rgba(0,0,0,1);
+    opacity:0;transform:scale(.65);
+  }
+  .fx-sub,.death-sub{
+    position:relative;font-size:12px;font-weight:700;
+    letter-spacing:.2em;color:rgba(255,255,255,.7);
+    margin-top:6px;opacity:0;transform:translateY(8px);
+  }
+  .death-sub{color:rgba(255,160,160,.9);}
+
+  @keyframes fxBg  {0%{opacity:0}25%{opacity:1}75%{opacity:1}100%{opacity:0}}
+  @keyframes fxRing {0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(4)}}
+  @keyframes fxWord {
+    0%{opacity:0;transform:scale(.65)}18%{opacity:1;transform:scale(1.1)}
+    32%{transform:scale(1)}78%{opacity:1}100%{opacity:0;transform:scale(1)}
+  }
+  @keyframes fxSub{
+    0%{opacity:0;transform:translateY(8px)}22%{opacity:1;transform:translateY(0)}
+    78%{opacity:1}100%{opacity:0}
+  }
+  @keyframes glowGold{
+    0%,100%{box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 20px rgba(255,214,106,.65),0 0 42px rgba(255,214,106,.3),0 10px 20px rgba(0,0,0,.42)}
+    50%    {box-shadow:0 0 0 3px rgba(255,255,255,.2) ,0 0 32px rgba(255,214,106,.9) ,0 0 58px rgba(255,214,106,.48),0 10px 20px rgba(0,0,0,.42)}
+  }
+  @keyframes glowPurple{
+    0%,100%{box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 20px rgba(180,100,255,.65),0 0 42px rgba(180,100,255,.3),0 10px 20px rgba(0,0,0,.42)}
+    50%    {box-shadow:0 0 0 3px rgba(255,255,255,.2) ,0 0 32px rgba(180,100,255,.9) ,0 0 58px rgba(180,100,255,.48),0 10px 20px rgba(0,0,0,.42)}
+  }
+  @keyframes glowRed{
+    0%,100%{box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 20px rgba(255,91,91,.65),0 0 42px rgba(255,91,91,.3),0 10px 20px rgba(0,0,0,.42)}
+    50%    {box-shadow:0 0 0 3px rgba(255,255,255,.2) ,0 0 32px rgba(255,91,91,.9) ,0 0 58px rgba(255,91,91,.48),0 10px 20px rgba(0,0,0,.42)}
+  }
+  @keyframes blink{
+    0%,100%{filter:brightness(1.8) saturate(1.3);opacity:1}
+    33%,66%{filter:brightness(.45);opacity:.25}
+  }
+  @keyframes fallDown{
+    0%{opacity:1;filter:none}
+    40%{opacity:.5}
+    100%{transform:translateY(60px) scale(.82);opacity:0;filter:blur(3px)}
+  }
+  @keyframes flyUp{
+    0%{opacity:1;filter:none;transform:translateY(0)}
+    100%{opacity:0;transform:translateY(-80px) scale(.9);filter:blur(3px)}
+  }
+
+  .inline-log{
+    margin-top:10px;border-top:1px solid rgba(255,255,255,.08);
+    padding-top:10px;display:flex;flex-direction:column;gap:7px;
+  }
+  .info-box{
+    padding:12px 14px;border-radius:14px;
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);
+    font-size:14px;line-height:1.6;color:var(--text);
+  }
+  .info-box strong{
+    display:block;font-size:12px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--gold);margin-bottom:5px;
+  }
+  .info-flow{font-size:11px;color:rgba(158,178,208,.45);text-align:center;padding:2px 0;}
+  .fade-in{animation:fadeIn .22s ease both}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+  @media(min-width:860px){
+    .top{flex-direction:row;justify-content:space-between;align-items:center}
+    .controls{width:min(340px,100%)}
+  }
+</style>
+</head>
+<body>
+<div class="wrap"><div class="scene">
+  <div class="top">
+    <div class="title">デコイ</div>
+    <div class="controls">
+      <button id="prevBtn">前へ</button>
+      <button id="nextBtn" class="primary">次へ</button>
+      <button id="playBtn">再生</button>
+      <button id="resetBtn">リセット</button>
+    </div>
+  </div>
+
+  <div class="board" id="board">
+    <!-- 相手エリア -->
+    <div class="area-label">相手のバトルエリア</div>
+    <div class="enemy-area">
+      <!-- オメガモン -->
+      <div class="digi-card enemy-card" id="omegaCard">
+        <img src="https://tayu02.github.io/digimon-keyword/digimon/BT13-112.png" alt="">
+      </div>
+      <!-- オールデリート -->
+      <div class="option-card" id="allDeleteCard">
+        <img src="https://tayu02.github.io/digimon-keyword/digimon/BT5-110.png" alt="">
+      </div>
+    </div>
+
+    <div class="divider">── VS ──</div>
+
+    <!-- 自分エリア -->
+    <div class="area-label">自分のバトルエリア</div>
+    <div class="my-area" id="myArea">
+      <!-- シスタモンブラン -->
+      <div class="digi-card" id="sistCard">
+        <img src="https://tayu02.github.io/digimon-keyword/digimon/ST12-12.png" alt="">
+      </div>
+      <!-- ジエスモンGX -->
+      <div class="digi-card" id="jesCard">
+        <img src="https://tayu02.github.io/digimon-keyword/digimon/BT10-112.png" alt="">
+      </div>
+    </div>
+
+    <!-- オールデリートエフェクト -->
+    <div class="death-overlay" id="deathOverlay">
+      <div class="death-bg"   id="deathBg"></div>
+      <div class="death-ring" id="deathRing"></div>
+      <div class="death-word" id="deathWord">オールデリート</div>
+      <div class="death-sub"  id="deathSub">全体消滅</div>
+    </div>
+
+    <!-- デコイエフェクト -->
+    <div class="fx-overlay" id="fxOverlay">
+      <div class="fx-bg"   id="fxBg"></div>
+      <div class="fx-ring" id="fxRing"></div>
+      <div class="fx-word" id="fxWord">デコイ</div>
+      <div class="fx-sub"  id="fxSub">DECOY</div>
+    </div>
+
+    <div class="inline-log">
+      <div class="info-box" id="infoBox">
+        <strong id="infoTitle"></strong>
+        <span   id="infoText"></span>
+      </div>
+      <div class="info-flow">オールデリート → 全体消滅 → デコイ発動 → シスタモンブランが身代わり → ジエスモンGX生存</div>
+    </div>
+  </div>
+</div></div>
+
+<script>
+const board        = document.getElementById("board");
+const omegaCard    = document.getElementById("omegaCard");
+const allDeleteCard= document.getElementById("allDeleteCard");
+const sistCard     = document.getElementById("sistCard");
+const jesCard      = document.getElementById("jesCard");
+const deathOverlay = document.getElementById("deathOverlay");
+const deathBg      = document.getElementById("deathBg");
+const deathRing    = document.getElementById("deathRing");
+const deathWord    = document.getElementById("deathWord");
+const deathSub     = document.getElementById("deathSub");
+const fxOverlay    = document.getElementById("fxOverlay");
+const fxBg         = document.getElementById("fxBg");
+const fxRing       = document.getElementById("fxRing");
+const fxWord       = document.getElementById("fxWord");
+const fxSub        = document.getElementById("fxSub");
+const infoBox      = document.getElementById("infoBox");
+const infoTitle    = document.getElementById("infoTitle");
+const infoText     = document.getElementById("infoText");
+const nextBtn      = document.getElementById("nextBtn");
+const prevBtn      = document.getElementById("prevBtn");
+const playBtn      = document.getElementById("playBtn");
+const resetBtn     = document.getElementById("resetBtn");
+
+let cur = 0, locked = false, playing = false;
+const TOTAL = 4;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const GOLD   = "0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(255,214,106,.7),0 0 44px rgba(255,214,106,.35),0 10px 20px rgba(0,0,0,.42)";
+const RED    = "0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(255,91,91,.7),0 0 44px rgba(255,91,91,.35),0 10px 20px rgba(0,0,0,.42)";
+const PURPLE = "0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(180,100,255,.7),0 0 44px rgba(180,100,255,.35),0 10px 20px rgba(0,0,0,.42)";
+
+const steps = [
+  { title:"① 初期状態",
+    text :"シスタモンブランとジエスモンGXがアクティブ状態でバトルエリアにいます。相手のバトルエリアにはオメガモンがいます。" },
+  { title:"② オールデリート発動",
+    text :"相手がオールデリートを使用しました。オメガモンは相手の手札に戻り、それ以外のバトルエリアのカードは全て消滅します。シスタモンブランとジエスモンGXも消滅対象です。" },
+  { title:"③ デコイ発動",
+    text :"デコイが発動します。自分の盤面にロイヤルナイツがいる時、シスタモンブランは赤/黒に対してデコイを取得します。ジエスモンGXの消滅を身代わりに引き受け、シスタモンブランが消滅します。ジエスモンGXは生き残ります。" },
+  { title:"④ デコイの注意点",
+    text :"デコイは自分も消滅の対象に含まれている時でも身代わりになることができます。今回のオールデリートのように全体消滅の場合でも、デコイが発動してジエスモンGXを守ることができます。" },
+];
+
+function resetAll() {
+  omegaCard.style.animation  = "none";
+  omegaCard.style.boxShadow  = "";
+  omegaCard.style.filter     = "none";
+  omegaCard.style.opacity    = "1";
+  omegaCard.style.transform  = "";
+  allDeleteCard.style.opacity= "0";
+  sistCard.style.animation   = "none";
+  sistCard.style.boxShadow   = "";
+  sistCard.style.filter      = "none";
+  sistCard.style.opacity     = "1";
+  sistCard.style.transform   = "";
+  jesCard.style.animation    = "none";
+  jesCard.style.boxShadow    = "";
+  jesCard.style.filter       = "none";
+  jesCard.style.opacity      = "1";
+  jesCard.style.transform    = "";
+  deathOverlay.style.opacity = "0";
+  fxOverlay.style.opacity    = "0";
+}
+
+const S = [
+  // 0: 初期
+  () => {
+    resetAll();
+    sistCard.style.animation = "glowGold 1.4s ease infinite";
+    sistCard.style.boxShadow = GOLD;
+    jesCard.style.animation  = "glowGold 1.4s ease infinite";
+    jesCard.style.boxShadow  = GOLD;
+  },
+  // 1: オールデリート後・オメガモン手札へ・両者赤く
+  () => {
+    resetAll();
+    allDeleteCard.style.opacity = "1";
+    omegaCard.style.opacity     = "0";
+    sistCard.style.animation    = "glowRed 1.4s ease infinite";
+    sistCard.style.boxShadow    = RED;
+    jesCard.style.animation     = "glowRed 1.4s ease infinite";
+    jesCard.style.boxShadow     = RED;
+  },
+  // 2: デコイ・シスタモン消滅・ジエスモン生存
+  () => {
+    resetAll();
+    allDeleteCard.style.opacity = "1";
+    omegaCard.style.opacity     = "0";
+    sistCard.style.opacity      = "0";
+    jesCard.style.animation     = "glowGold 1.4s ease infinite";
+    jesCard.style.boxShadow     = GOLD;
+  },
+  // 3: 注意点（状態維持）
+  () => {
+    resetAll();
+    allDeleteCard.style.opacity = "1";
+    omegaCard.style.opacity     = "0";
+    sistCard.style.opacity      = "0";
+    jesCard.style.animation     = "glowGold 1.4s ease infinite";
+    jesCard.style.boxShadow     = GOLD;
+  },
+];
+
+function updateText() {
+  const d = steps[cur];
+  infoBox.classList.remove("fade-in");
+  void infoBox.offsetWidth;
+  infoTitle.textContent = d.title;
+  infoText.textContent  = d.text;
+  infoBox.classList.add("fade-in");
+}
+function updateBtns() {
+  prevBtn.disabled = cur === 0;
+  nextBtn.disabled = cur === TOTAL - 1;
+  playBtn.disabled = cur === TOTAL - 1;
+}
+
+async function playDeathFx() {
+  deathOverlay.style.opacity = "1";
+  [deathBg,deathRing,deathWord,deathSub].forEach(el=>{el.style.animation="none";void el.offsetWidth;});
+  deathBg.style.animation   = "fxBg   1.4s ease forwards";
+  deathRing.style.animation = "fxRing .85s ease-out forwards";
+  deathWord.style.animation = "fxWord 1.4s ease forwards";
+  deathSub.style.animation  = "fxSub  1.4s ease forwards";
+  await sleep(1450);
+  deathOverlay.style.opacity = "0";
+}
+
+async function playFxAnim() {
+  fxOverlay.style.opacity = "1";
+  [fxBg,fxRing,fxWord,fxSub].forEach(el=>{el.style.animation="none";void el.offsetWidth;});
+  fxBg.style.animation   = "fxBg   1.4s ease forwards";
+  fxRing.style.animation = "fxRing .85s ease-out forwards";
+  fxWord.style.animation = "fxWord 1.4s ease forwards";
+  fxSub.style.animation  = "fxSub  1.4s ease forwards";
+  await sleep(1450);
+  fxOverlay.style.opacity = "0";
+}
+
+async function runAnim(step) {
+  if (step === 0) { S[0](); return; }
+
+  if (step === 1) {
+    // オールデリートがriseで登場
+    allDeleteCard.style.opacity   = "1";
+    allDeleteCard.style.transform = "translateY(40px) scale(.9)";
+    allDeleteCard.style.filter    = "blur(2px)";
+    await sleep(30);
+    allDeleteCard.style.transition = "transform .4s ease, filter .3s ease";
+    allDeleteCard.style.transform  = "";
+    allDeleteCard.style.filter     = "none";
+    await sleep(420);
+    allDeleteCard.style.transition = "";
+    await sleep(200);
+    // オールデリートエフェクト
+    await playDeathFx();
+    // オメガモンがflyUpで手札へ
+    omegaCard.style.animation = "flyUp .5s ease forwards";
+    await sleep(300);
+    // 両者赤く点滅
+    sistCard.style.animation = "blink .8s linear 1";
+    sistCard.style.boxShadow = RED;
+    jesCard.style.animation  = "blink .8s linear 1";
+    jesCard.style.boxShadow  = RED;
+    await sleep(820);
+    S[1](); return;
+  }
+
+  if (step === 2) {
+    // デコイエフェクト→シスタモンがfallDown
+    await playFxAnim();
+    sistCard.style.animation = "fallDown .5s ease forwards";
+    await sleep(520);
+    jesCard.style.animation  = "glowGold 1.4s ease infinite";
+    jesCard.style.boxShadow  = GOLD;
+    S[2](); return;
+  }
+
+  if (step === 3) { S[3](); return; }
+}
+
+async function goTo(step, instant = false) {
+  cur = step; updateText(); updateBtns();
+  if (instant) { S[step](); return; }
+  await runAnim(step);
+}
+
+nextBtn.addEventListener("click", async () => {
+  if (locked || cur >= TOTAL - 1) return;
+  document.getElementById("board").scrollIntoView({behavior:"smooth", block:"start"});
+  playing = false; locked = true;
+  await goTo(cur + 1, false);
+  locked = false; updateBtns();
+});
+prevBtn.addEventListener("click", async () => {
+  if (locked || cur <= 0) return;
+  playing = false; locked = true;
+  await goTo(cur - 1, true);
+  locked = false; updateBtns();
+});
+playBtn.addEventListener("click", async () => {
+  if (locked || playing || cur >= TOTAL - 1) return;
+  document.getElementById("board").scrollIntoView({behavior:"smooth", block:"start"});
+  playing = true;
+  while (playing && cur < TOTAL - 1) {
+    await sleep(1800); if (!playing) break;
+    locked = true; await goTo(cur + 1, false); locked = false; updateBtns();
+  }
+  playing = false;
+});
+resetBtn.addEventListener("click", async () => {
+  playing = false; locked = false;
+  await goTo(0, true); updateBtns();
+});
+
+goTo(0, true);
+</script>
+</body>
+</html>

@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>道連れ</title>
+<style>
+  :root{ --bg:#08111f; --text:#e9f1ff; --muted:#9eb2d0; --gold:#ffd56a; }
+  *{box-sizing:border-box} html,body{height:100%;margin:0}
+  body{
+    font-family:system-ui,-apple-system,sans-serif;
+    background:radial-gradient(circle at top,#18263f,var(--bg) 62%);
+    color:var(--text);overflow-x:hidden;
+  }
+  .wrap{min-height:100%;padding:12px;display:grid;place-items:center}
+  .scene{
+    width:min(700px,100%);
+    background:rgba(10,18,32,.86);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:20px;padding:12px;
+    box-shadow:0 18px 50px rgba(0,0,0,.42);
+  }
+  .top{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+  .title{font-size:17px;font-weight:800}
+  .controls{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  button{
+    border:0;border-radius:10px;padding:5px 6px;min-height:26px;
+    font-weight:700;font-size:13px;cursor:pointer;
+    color:var(--text);background:#2a3d63;transition:opacity .15s;
+  }
+  button:disabled{opacity:.35;cursor:default}
+  button.primary{background:linear-gradient(90deg,#ff6a6a,#ff9c6a)}
+
+  .board{
+    background:rgba(17,27,46,.86);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:18px;padding:12px;
+    position:relative;overflow:hidden;
+  }
+  .area-label{
+    font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:6px;
+  }
+  .enemy-area{
+    display:flex;justify-content:center;
+    padding:8px 0 10px;
+    border-bottom:1px dashed rgba(255,255,255,.1);
+    min-height:160px;align-items:flex-start;
+  }
+  .divider{text-align:center;font-size:11px;color:rgba(158,178,208,.35);padding:5px 0}
+  .my-area{
+    display:flex;justify-content:center;
+    padding:10px 0 4px;
+    min-height:160px;align-items:flex-start;
+  }
+
+  .digi-card{
+    width:108px;height:151px;
+    flex:0 0 auto;
+    border-radius:12px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 10px 20px rgba(0,0,0,.42);
+    background:#09111f;
+    transform-origin:center center;
+    transition:box-shadow .3s ease, filter .25s ease, opacity .4s ease, transform .5s cubic-bezier(.4,0,.2,1);
+  }
+  .digi-card img{width:100%;height:100%;object-fit:cover;display:block}
+  .enemy-card img{transform:rotate(180deg)}
+
+  /* 矢印SVG */
+  .arrow-layer{
+    position:absolute;inset:0;
+    width:100%;height:100%;
+    pointer-events:none;z-index:10;
+    overflow:visible;
+  }
+
+  /* 道連れエフェクト（暗い紫・冥界イメージ） */
+  .fx-overlay{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    pointer-events:none;z-index:20;opacity:0;
+  }
+  .fx-bg{
+    position:absolute;inset:0;
+    background:radial-gradient(ellipse at center,rgba(120,60,200,.25) 0%,rgba(120,60,200,.1) 45%,transparent 72%);
+    opacity:0;
+  }
+  .fx-ring{
+    position:absolute;width:56px;height:56px;
+    border-radius:50%;border:2px solid rgba(140,80,220,.95);opacity:0;
+  }
+  .fx-word{
+    position:relative;font-size:clamp(28px,8vw,46px);font-weight:900;
+    letter-spacing:.12em;color:#fff;
+    text-shadow:0 0 24px rgba(140,80,220,1),0 0 48px rgba(140,80,220,.8),0 2px 8px rgba(0,0,0,1);
+    opacity:0;transform:scale(.65);
+  }
+  .fx-sub{
+    position:relative;font-size:12px;font-weight:700;
+    letter-spacing:.2em;color:rgba(255,255,255,.7);
+    margin-top:6px;opacity:0;transform:translateY(8px);
+  }
+  @keyframes fxBg  {0%{opacity:0}25%{opacity:1}75%{opacity:1}100%{opacity:0}}
+  @keyframes fxRing {0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(4)}}
+  @keyframes fxWord {
+    0%{opacity:0;transform:scale(.65)}18%{opacity:1;transform:scale(1.1)}
+    32%{transform:scale(1)}78%{opacity:1}100%{opacity:0;transform:scale(1)}
+  }
+  @keyframes fxSub{
+    0%{opacity:0;transform:translateY(8px)}22%{opacity:1;transform:translateY(0)}
+    78%{opacity:1}100%{opacity:0}
+  }
+  @keyframes glowGold{
+    0%,100%{box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 20px rgba(255,214,106,.65),0 0 42px rgba(255,214,106,.3),0 10px 20px rgba(0,0,0,.42)}
+    50%    {box-shadow:0 0 0 3px rgba(255,255,255,.2) ,0 0 32px rgba(255,214,106,.9) ,0 0 58px rgba(255,214,106,.48),0 10px 20px rgba(0,0,0,.42)}
+  }
+  @keyframes glowRed{
+    0%,100%{box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 20px rgba(255,91,91,.65),0 0 42px rgba(255,91,91,.3),0 10px 20px rgba(0,0,0,.42)}
+    50%    {box-shadow:0 0 0 3px rgba(255,255,255,.2) ,0 0 32px rgba(255,91,91,.9) ,0 0 58px rgba(255,91,91,.48),0 10px 20px rgba(0,0,0,.42)}
+  }
+  @keyframes blink{
+    0%,100%{filter:brightness(1.8) saturate(1.3);opacity:1}
+    33%,66%{filter:brightness(.45);opacity:.25}
+  }
+  @keyframes fallDown{
+    0%{opacity:1;filter:none}
+    40%{opacity:.5}
+    100%{transform:translateY(60px) scale(.82);opacity:0;filter:blur(3px)}
+  }
+  @keyframes fallDownRest{
+    0%{opacity:1;filter:none;transform:translateY(-22px) rotate(90deg)}
+    40%{opacity:.5}
+    100%{transform:translateY(38px) rotate(90deg) scale(.82);opacity:0;filter:blur(3px)}
+  }
+  @keyframes fallUp{
+    0%{opacity:1;filter:none}
+    40%{opacity:.5}
+    100%{transform:translateY(-60px) scale(.82);opacity:0;filter:blur(3px)}
+  }
+
+  .inline-log{
+    margin-top:10px;border-top:1px solid rgba(255,255,255,.08);
+    padding-top:10px;display:flex;flex-direction:column;gap:7px;
+  }
+  .info-box{
+    padding:12px 14px;border-radius:14px;
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);
+    font-size:14px;line-height:1.6;color:var(--text);
+  }
+  .info-box strong{
+    display:block;font-size:12px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--gold);margin-bottom:5px;
+  }
+  .info-flow{font-size:11px;color:rgba(158,178,208,.45);text-align:center;padding:2px 0;}
+  .fade-in{animation:fadeIn .22s ease both}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+  @media(min-width:860px){
+    .top{flex-direction:row;justify-content:space-between;align-items:center}
+    .controls{width:min(340px,100%)}
+  }
+</style>
+</head>
+<body>
+<div class="wrap"><div class="scene">
+  <div class="top">
+    <div class="title">道連れ</div>
+    <div class="controls">
+      <button id="prevBtn">前へ</button>
+      <button id="nextBtn" class="primary">次へ</button>
+      <button id="playBtn">再生</button>
+      <button id="resetBtn">リセット</button>
+    </div>
+  </div>
+
+  <div class="board" id="board">
+    <div class="area-label">相手のバトルエリア</div>
+    <div class="enemy-area">
+      <div class="digi-card enemy-card" id="darkCard">
+        <img src="https://tayu02.github.io/digimon-keyword/digimon/BT12-111.png" alt="">
+      </div>
+    </div>
+
+    <div class="divider">── VS ──</div>
+
+    <div class="area-label">自分のバトルエリア</div>
+    <div class="my-area">
+      <div class="digi-card" id="yunoCard" style="transform:translateY(-22px) rotate(90deg)">
+        <img src="https://tayu02.github.io/digimon-keyword/digimon/ST10-13.png" alt="">
+      </div>
+    </div>
+
+    <!-- 矢印SVG -->
+    <svg class="arrow-layer" id="arrowSvg" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <defs>
+        <marker id="mhR" markerWidth="5" markerHeight="4" refX="5" refY="2" orient="auto">
+          <polygon points="0 0,5 2,0 4" fill="rgba(255,91,91,.96)"/>
+        </marker>
+      </defs>
+      <line id="arrYuno"
+        stroke="rgba(255,91,91,.9)" stroke-width="1.4"
+        marker-end="url(#mhR)" opacity="0" style="transition:opacity .3s ease"/>
+    </svg>
+
+    <!-- 道連れエフェクト -->
+    <div class="fx-overlay" id="fxOverlay">
+      <div class="fx-bg"   id="fxBg"></div>
+      <div class="fx-ring" id="fxRing"></div>
+      <div class="fx-word" id="fxWord">道連れ</div>
+      <div class="fx-sub"  id="fxSub">DRAG DOWN</div>
+    </div>
+
+    <div class="inline-log">
+      <div class="info-box" id="infoBox">
+        <strong id="infoTitle"></strong>
+        <span   id="infoText"></span>
+      </div>
+      <div class="info-flow">アタック → バトル → ユノモン消滅 → 道連れ発動 → ダークネスバグラモンも消滅</div>
+    </div>
+  </div>
+</div></div>
+
+<script>
+const board    = document.getElementById("board");
+const darkCard = document.getElementById("darkCard");
+const yunoCard = document.getElementById("yunoCard");
+const arrYuno  = document.getElementById("arrYuno");
+const fxOverlay= document.getElementById("fxOverlay");
+const fxBg     = document.getElementById("fxBg");
+const fxRing   = document.getElementById("fxRing");
+const fxWord   = document.getElementById("fxWord");
+const fxSub    = document.getElementById("fxSub");
+const infoBox  = document.getElementById("infoBox");
+const infoTitle= document.getElementById("infoTitle");
+const infoText = document.getElementById("infoText");
+const nextBtn  = document.getElementById("nextBtn");
+const prevBtn  = document.getElementById("prevBtn");
+const playBtn  = document.getElementById("playBtn");
+const resetBtn = document.getElementById("resetBtn");
+
+let cur = 0, locked = false, playing = false;
+const TOTAL = 3;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const YUNO_REST  = "translateY(-22px) rotate(90deg)";
+const DARK_REST  = "rotate(-90deg)";
+const GOLD = "0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(255,214,106,.7),0 0 44px rgba(255,214,106,.35),0 10px 20px rgba(0,0,0,.42)";
+const RED  = "0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(255,91,91,.7),0 0 44px rgba(255,91,91,.35),0 10px 20px rgba(0,0,0,.42)";
+
+const steps = [
+  { title:"① 初期状態",
+    text :"ユノモンがレスト状態でバトルエリアにいます。相手のバトルエリアにはダークネスバグラモンがアクティブ状態です。" },
+  { title:"② アタック・ユノモン消滅",
+    text :"ダークネスバグラモンがユノモンにアタックを宣言し、レスト状態になりました。DPの差でユノモンはバトルに負けて消滅します。" },
+  { title:"③ 道連れ発動",
+    text :"道連れが発動します。バトルで自分だけが消滅した時、バトルした相手のデジモンも一緒に消滅させます。ダークネスバグラモンも消滅しました。" },
+];
+
+function updateArrows() {
+  const br = board.getBoundingClientRect();
+  const dr = darkCard.getBoundingClientRect();
+  const yr = yunoCard.getBoundingClientRect();
+  const dx = ((dr.left + dr.width  / 2) - br.left) / br.width  * 100;
+  const dy = ((dr.top  + dr.height / 2) - br.top)  / br.height * 100;
+  const yx = ((yr.left + yr.width  / 2) - br.left) / br.width  * 100;
+  const yy = ((yr.top  + yr.height / 2) - br.top)  / br.height * 100;
+  arrYuno.setAttribute("x1", dx); arrYuno.setAttribute("y1", dy);
+  arrYuno.setAttribute("x2", yx); arrYuno.setAttribute("y2", yy);
+}
+
+function resetAll() {
+  darkCard.style.transform = "";
+  darkCard.style.animation = "none";
+  darkCard.style.boxShadow = "";
+  darkCard.style.filter    = "none";
+  darkCard.style.opacity   = "1";
+  yunoCard.style.transform = YUNO_REST;
+  yunoCard.style.animation = "none";
+  yunoCard.style.boxShadow = "";
+  yunoCard.style.filter    = "none";
+  yunoCard.style.opacity   = "1";
+  arrYuno.style.opacity    = "0";
+  fxOverlay.style.opacity  = "0";
+}
+
+const S = [
+  () => {
+    resetAll();
+    yunoCard.style.animation = "glowGold 1.4s ease infinite";
+    yunoCard.style.boxShadow = GOLD;
+    darkCard.style.animation = "glowGold 1.4s ease infinite";
+    darkCard.style.boxShadow = GOLD;
+  },
+  () => {
+    resetAll();
+    darkCard.style.transform = DARK_REST;
+    darkCard.style.animation = "glowRed 1.4s ease infinite";
+    darkCard.style.boxShadow = RED;
+    yunoCard.style.opacity   = "0";
+    requestAnimationFrame(() => { updateArrows(); arrYuno.style.opacity = "1"; });
+  },
+  () => {
+    resetAll();
+    darkCard.style.opacity = "0";
+    yunoCard.style.opacity = "0";
+    arrYuno.style.opacity  = "0";
+  },
+];
+
+function updateText() {
+  const d = steps[cur];
+  infoBox.classList.remove("fade-in");
+  void infoBox.offsetWidth;
+  infoTitle.textContent = d.title;
+  infoText.textContent  = d.text;
+  infoBox.classList.add("fade-in");
+}
+function updateBtns() {
+  prevBtn.disabled = cur === 0;
+  nextBtn.disabled = cur === TOTAL - 1;
+  playBtn.disabled = cur === TOTAL - 1;
+}
+
+async function playFxAnim() {
+  fxOverlay.style.opacity = "1";
+  [fxBg,fxRing,fxWord,fxSub].forEach(el=>{el.style.animation="none";void el.offsetWidth;});
+  fxBg.style.animation   = "fxBg   1.4s ease forwards";
+  fxRing.style.animation = "fxRing .85s ease-out forwards";
+  fxWord.style.animation = "fxWord 1.4s ease forwards";
+  fxSub.style.animation  = "fxSub  1.4s ease forwards";
+  await sleep(1450);
+  fxOverlay.style.opacity = "0";
+}
+
+async function runAnim(step) {
+  if (step === 0) { S[0](); return; }
+
+  if (step === 1) {
+    // ダークネスバグラモンがレスト→矢印→両方点滅→ユノモン消滅
+    darkCard.style.transition = "transform .5s cubic-bezier(.4,0,.2,1)";
+    darkCard.style.transform  = DARK_REST;
+    await sleep(520);
+    darkCard.style.transition = "";
+    requestAnimationFrame(() => { updateArrows(); arrYuno.style.opacity = "1"; });
+    await sleep(300);
+    yunoCard.style.animation = "blink .8s linear 1";
+    yunoCard.style.boxShadow = RED;
+    darkCard.style.animation = "blink .8s linear 1";
+    darkCard.style.boxShadow = RED;
+    await sleep(820);
+    yunoCard.style.animation = "fallDownRest .5s ease forwards";
+    await sleep(520);
+    S[1](); return;
+  }
+
+  if (step === 2) {
+    // 道連れエフェクト→ダークネスバグラモン消滅
+    await playFxAnim();
+    darkCard.style.animation = "fallDown .5s ease forwards";
+    await sleep(520);
+    S[2](); return;
+  }
+}
+
+async function goTo(step, instant = false) {
+  cur = step; updateText(); updateBtns();
+  if (instant) { S[step](); return; }
+  await runAnim(step);
+}
+
+nextBtn.addEventListener("click", async () => {
+  if (locked || cur >= TOTAL - 1) return;
+  document.getElementById("board").scrollIntoView({behavior:"smooth", block:"start"});
+  playing = false; locked = true;
+  await goTo(cur + 1, false);
+  locked = false; updateBtns();
+});
+prevBtn.addEventListener("click", async () => {
+  if (locked || cur <= 0) return;
+  playing = false; locked = true;
+  await goTo(cur - 1, true);
+  locked = false; updateBtns();
+});
+playBtn.addEventListener("click", async () => {
+  if (locked || playing || cur >= TOTAL - 1) return;
+  document.getElementById("board").scrollIntoView({behavior:"smooth", block:"start"});
+  playing = true;
+  while (playing && cur < TOTAL - 1) {
+    await sleep(1800); if (!playing) break;
+    locked = true; await goTo(cur + 1, false); locked = false; updateBtns();
+  }
+  playing = false;
+});
+resetBtn.addEventListener("click", async () => {
+  playing = false; locked = false;
+  await goTo(0, true); updateBtns();
+});
+
+window.addEventListener("resize", () => { if (cur === 1) updateArrows(); });
+goTo(0, true);
+</script>
+</body>
+</html>

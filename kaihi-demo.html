@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>回避</title>
+<style>
+  :root{ --bg:#08111f; --text:#e9f1ff; --muted:#9eb2d0; --gold:#ffd56a; }
+  *{box-sizing:border-box} html,body{height:100%;margin:0}
+  body{
+    font-family:system-ui,-apple-system,sans-serif;
+    background:radial-gradient(circle at top,#18263f,var(--bg) 62%);
+    color:var(--text);overflow-x:hidden;
+  }
+  .wrap{min-height:100%;padding:12px;display:grid;place-items:center}
+  .scene{
+    width:min(700px,100%);
+    background:rgba(10,18,32,.86);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:20px;padding:12px;
+    box-shadow:0 18px 50px rgba(0,0,0,.42);
+  }
+  .top{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+  .title{font-size:17px;font-weight:800}
+  .controls{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  button{
+    border:0;border-radius:10px;padding:5px 6px;min-height:26px;
+    font-weight:700;font-size:13px;cursor:pointer;
+    color:var(--text);background:#2a3d63;transition:opacity .15s;
+  }
+  button:disabled{opacity:.35;cursor:default}
+  button.primary{background:linear-gradient(90deg,#ff6a6a,#ff9c6a)}
+
+  .board{
+    background:rgba(17,27,46,.86);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:18px;padding:12px;
+    position:relative;overflow:hidden;
+  }
+  .area-label{
+    font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:6px;
+  }
+  .enemy-area{
+    display:flex;justify-content:center;
+    padding:8px 0 10px;
+    border-bottom:1px dashed rgba(255,255,255,.1);
+    min-height:60px;align-items:center;
+  }
+  .divider{text-align:center;font-size:11px;color:rgba(158,178,208,.35);padding:5px 0}
+  .my-area{display:flex;justify-content:center;padding:10px 0 4px}
+
+  /* オプションカード */
+  .option-slot{
+    width:108px;height:151px;
+    position:relative;flex:0 0 auto;
+    opacity:0;
+    transition:opacity .3s ease;
+  }
+  .option-slot img{
+    width:100%;height:100%;object-fit:cover;display:block;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 10px 20px rgba(0,0,0,.42);
+    transform:rotate(180deg);
+  }
+
+  .slot{
+    width:108px;height:151px;
+    position:relative;flex:0 0 auto;
+  }
+  .card{
+    position:absolute;
+    width:108px;height:151px;
+    left:0;top:0;
+    border-radius:12px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 10px 20px rgba(0,0,0,.42);
+    background:#09111f;
+    transform-origin:center center;
+    transition:box-shadow .3s ease, filter .25s ease, opacity .3s ease;
+  }
+  .card img{width:100%;height:100%;object-fit:cover;display:block}
+
+  /* 回避エフェクト（白・銀） */
+  .fx-overlay{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    pointer-events:none;z-index:20;opacity:0;
+  }
+  .fx-bg{
+    position:absolute;inset:0;
+    background:radial-gradient(ellipse at center,
+      rgba(200,220,255,.22) 0%,rgba(200,220,255,.08) 45%,transparent 72%);
+    opacity:0;
+  }
+  .fx-ring{
+    position:absolute;width:56px;height:56px;
+    border-radius:50%;border:2px solid rgba(200,220,255,.95);opacity:0;
+  }
+  .fx-word{
+    position:relative;
+    font-size:clamp(28px,8vw,46px);font-weight:900;
+    letter-spacing:.12em;color:#fff;
+    text-shadow:0 0 24px rgba(200,220,255,1),0 0 48px rgba(200,220,255,.8),0 0 80px rgba(200,220,255,.5),0 2px 8px rgba(0,0,0,1);
+    opacity:0;transform:scale(.65);
+  }
+  .fx-sub{
+    position:relative;font-size:12px;font-weight:700;
+    letter-spacing:.2em;color:rgba(255,255,255,.7);
+    margin-top:6px;opacity:0;transform:translateY(8px);
+  }
+
+  /* デス・ザ・キャノンエフェクト（赤黒） */
+  .death-overlay{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    pointer-events:none;z-index:20;opacity:0;
+  }
+  .death-bg{
+    position:absolute;inset:0;
+    background:radial-gradient(ellipse at center,
+      rgba(180,0,0,.25) 0%,rgba(180,0,0,.1) 45%,transparent 72%);
+    opacity:0;
+  }
+  .death-ring{
+    position:absolute;width:56px;height:56px;
+    border-radius:50%;border:2px solid rgba(200,0,0,.95);opacity:0;
+  }
+  .death-word{
+    position:relative;
+    font-size:clamp(18px,5vw,32px);font-weight:900;
+    letter-spacing:.06em;color:#fff;
+    text-shadow:0 0 24px rgba(200,0,0,1),0 0 48px rgba(200,0,0,.8),0 2px 8px rgba(0,0,0,1);
+    opacity:0;transform:scale(.65);
+  }
+  .death-sub{
+    position:relative;font-size:11px;font-weight:700;
+    letter-spacing:.1em;color:rgba(255,160,160,.9);
+    margin-top:6px;opacity:0;transform:translateY(8px);
+  }
+
+  @keyframes fxBg  {0%{opacity:0}25%{opacity:1}75%{opacity:1}100%{opacity:0}}
+  @keyframes fxRing {0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(4)}}
+  @keyframes fxWord {
+    0%{opacity:0;transform:scale(.65)}18%{opacity:1;transform:scale(1.1)}
+    32%{transform:scale(1)}78%{opacity:1}100%{opacity:0;transform:scale(1)}
+  }
+  @keyframes fxSub{
+    0%{opacity:0;transform:translateY(8px)}22%{opacity:1;transform:translateY(0)}
+    78%{opacity:1}100%{opacity:0}
+  }
+  @keyframes rise{
+    0%{transform:translateY(60px) scale(.88);opacity:0;filter:blur(2px)}
+    100%{transform:translateY(0);opacity:1;filter:none}
+  }
+  @keyframes glowGold{
+    0%,100%{box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 20px rgba(255,214,106,.65),0 0 42px rgba(255,214,106,.3),0 10px 20px rgba(0,0,0,.42)}
+    50%    {box-shadow:0 0 0 3px rgba(255,255,255,.2) ,0 0 32px rgba(255,214,106,.9) ,0 0 58px rgba(255,214,106,.48),0 10px 20px rgba(0,0,0,.42)}
+  }
+  @keyframes glowSilver{
+    0%,100%{box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 20px rgba(200,220,255,.65),0 0 42px rgba(200,220,255,.3),0 10px 20px rgba(0,0,0,.42)}
+    50%    {box-shadow:0 0 0 3px rgba(255,255,255,.2) ,0 0 32px rgba(200,220,255,.9) ,0 0 58px rgba(200,220,255,.48),0 10px 20px rgba(0,0,0,.42)}
+  }
+  @keyframes glowRed{
+    0%,100%{box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 20px rgba(255,91,91,.65),0 0 42px rgba(255,91,91,.3),0 10px 20px rgba(0,0,0,.42)}
+    50%    {box-shadow:0 0 0 3px rgba(255,255,255,.2) ,0 0 32px rgba(255,91,91,.9) ,0 0 58px rgba(255,91,91,.48),0 10px 20px rgba(0,0,0,.42)}
+  }
+  @keyframes blink{
+    0%,100%{filter:brightness(1.8) saturate(1.3);opacity:1}
+    33%,66%{filter:brightness(.45);opacity:.25}
+  }
+
+  .inline-log{
+    margin-top:10px;border-top:1px solid rgba(255,255,255,.08);
+    padding-top:10px;display:flex;flex-direction:column;gap:7px;
+  }
+  .info-box{
+    padding:12px 14px;border-radius:14px;
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);
+    font-size:14px;line-height:1.6;color:var(--text);
+  }
+  .info-box strong{
+    display:block;font-size:12px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--gold);margin-bottom:5px;
+  }
+  .info-flow{
+    font-size:11px;color:rgba(158,178,208,.45);
+    text-align:center;padding:2px 0;
+  }
+  .fade-in{animation:fadeIn .22s ease both}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+
+  @media(min-width:860px){
+    .top{flex-direction:row;justify-content:space-between;align-items:center}
+    .controls{width:min(340px,100%)}
+  }
+</style>
+</head>
+<body>
+<div class="wrap"><div class="scene">
+
+  <div class="top">
+    <div class="title">回避</div>
+    <div class="controls">
+      <button id="prevBtn">前へ</button>
+      <button id="nextBtn" class="primary">次へ</button>
+      <button id="playBtn">再生</button>
+      <button id="resetBtn">リセット</button>
+    </div>
+  </div>
+
+  <div class="board" id="board">
+    <!-- 相手エリア（デス・ザ・キャノン） -->
+    <div class="area-label">相手の使用カード</div>
+    <div class="enemy-area">
+      <div class="option-slot" id="deathSlot">
+        <img src="https://tayu02.github.io/digimon-keyword/digimon/BT10-108.png" alt="デス・ザ・キャノン">
+      </div>
+    </div>
+
+    <div class="divider">── VS ──</div>
+
+    <!-- 自分エリア -->
+    <div class="area-label">自分のバトルエリア</div>
+    <div class="my-area">
+      <div class="slot">
+        <div class="card" id="metalCard">
+          <img src="https://tayu02.github.io/digimon-keyword/digimon/BT15-101.png" alt="">
+        </div>
+      </div>
+    </div>
+
+    <!-- デス・ザ・キャノンエフェクト -->
+    <div class="death-overlay" id="deathOverlay">
+      <div class="death-bg"   id="deathBg"></div>
+      <div class="death-ring" id="deathRing"></div>
+      <div class="death-word" id="deathWord">デス・ザ・キャノン</div>
+      <div class="death-sub"  id="deathSub">消滅対象</div>
+    </div>
+
+    <!-- 回避エフェクト -->
+    <div class="fx-overlay" id="fxOverlay">
+      <div class="fx-bg"   id="fxBg"></div>
+      <div class="fx-ring" id="fxRing"></div>
+      <div class="fx-word" id="fxWord">回避</div>
+      <div class="fx-sub"  id="fxSub">EVASION</div>
+    </div>
+
+    <div class="inline-log">
+      <div class="info-box" id="infoBox">
+        <strong id="infoTitle"></strong>
+        <span   id="infoText"></span>
+      </div>
+      <div class="info-flow">
+        デス・ザ・キャノン発動 → 消滅対象 → 回避発動 → レスト → 消滅せず生き残る
+      </div>
+    </div>
+  </div>
+
+</div></div>
+
+<script>
+const board        = document.getElementById("board");
+const metalCard    = document.getElementById("metalCard");
+const deathSlot    = document.getElementById("deathSlot");
+const deathOverlay = document.getElementById("deathOverlay");
+const deathBg      = document.getElementById("deathBg");
+const deathRing    = document.getElementById("deathRing");
+const deathWord    = document.getElementById("deathWord");
+const deathSub     = document.getElementById("deathSub");
+const fxOverlay    = document.getElementById("fxOverlay");
+const fxBg         = document.getElementById("fxBg");
+const fxRing       = document.getElementById("fxRing");
+const fxWord       = document.getElementById("fxWord");
+const fxSub        = document.getElementById("fxSub");
+const infoBox      = document.getElementById("infoBox");
+const infoTitle    = document.getElementById("infoTitle");
+const infoText     = document.getElementById("infoText");
+const nextBtn      = document.getElementById("nextBtn");
+const prevBtn      = document.getElementById("prevBtn");
+const playBtn      = document.getElementById("playBtn");
+const resetBtn     = document.getElementById("resetBtn");
+
+let cur = 0, locked = false, playing = false;
+const TOTAL = 3;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const METAL_REST = "translateY(-22px) rotate(90deg)";
+const GOLD   = "0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(255,214,106,.7),0 0 44px rgba(255,214,106,.35),0 10px 20px rgba(0,0,0,.42)";
+const RED    = "0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(255,91,91,.7),0 0 44px rgba(255,91,91,.35),0 10px 20px rgba(0,0,0,.42)";
+const SILVER = "0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(200,220,255,.7),0 0 44px rgba(200,220,255,.35),0 10px 20px rgba(0,0,0,.42)";
+
+const steps = [
+  { title:"① 初期状態",
+    text :"メタルガルルモンがアクティブ状態でバトルエリアにいます。" },
+  { title:"② デス・ザ・キャノン発動",
+    text :"相手がデス・ザ・キャノンを使用しました。メタルガルルモンが消滅対象になります。通常ならそのまま消滅してしまいます。" },
+  { title:"③ 回避発動",
+    text :"回避が発動します。メタルガルルモンがレスト状態になることで消滅を回避します。デス・ザ・キャノンの効果を受けずに生き残りました。" },
+];
+
+function resetAll() {
+  metalCard.style.transform = "";
+  metalCard.style.animation = "none";
+  metalCard.style.boxShadow = "";
+  metalCard.style.filter    = "none";
+  deathSlot.style.opacity   = "0";
+  deathOverlay.style.opacity= "0";
+  fxOverlay.style.opacity   = "0";
+}
+
+const S = [
+  // 0: 初期状態
+  () => {
+    resetAll();
+    metalCard.style.animation = "glowGold 1.4s ease infinite";
+    metalCard.style.boxShadow = GOLD;
+  },
+  // 1: デス・ザ・キャノン登場・メタルガルルモン赤く光る
+  () => {
+    resetAll();
+    deathSlot.style.opacity   = "1";
+    metalCard.style.animation = "glowRed 1.4s ease infinite";
+    metalCard.style.boxShadow = RED;
+  },
+  // 2: 回避・メタルガルルモンレスト・銀色に光る
+  () => {
+    resetAll();
+    deathSlot.style.opacity   = "1";
+    metalCard.style.transform = METAL_REST;
+    metalCard.style.animation = "glowSilver 1.4s ease infinite";
+    metalCard.style.boxShadow = SILVER;
+  },
+];
+
+function updateText() {
+  const d = steps[cur];
+  infoBox.classList.remove("fade-in");
+  void infoBox.offsetWidth;
+  infoTitle.textContent = d.title;
+  infoText.textContent  = d.text;
+  infoBox.classList.add("fade-in");
+}
+function updateBtns() {
+  prevBtn.disabled = cur === 0;
+  nextBtn.disabled = cur === TOTAL - 1;
+  playBtn.disabled = cur === TOTAL - 1;
+}
+
+async function playDeathFx() {
+  deathOverlay.style.opacity = "1";
+  [deathBg, deathRing, deathWord, deathSub].forEach(el => { el.style.animation = "none"; void el.offsetWidth; });
+  deathBg.style.animation   = "fxBg   1.4s ease forwards";
+  deathRing.style.animation = "fxRing .85s ease-out forwards";
+  deathWord.style.animation = "fxWord 1.4s ease forwards";
+  deathSub.style.animation  = "fxSub  1.4s ease forwards";
+  await sleep(1450);
+  deathOverlay.style.opacity = "0";
+}
+
+async function playFxAnim() {
+  fxOverlay.style.opacity = "1";
+  [fxBg, fxRing, fxWord, fxSub].forEach(el => { el.style.animation = "none"; void el.offsetWidth; });
+  fxBg.style.animation   = "fxBg   1.4s ease forwards";
+  fxRing.style.animation = "fxRing .85s ease-out forwards";
+  fxWord.style.animation = "fxWord 1.4s ease forwards";
+  fxSub.style.animation  = "fxSub  1.4s ease forwards";
+  await sleep(1450);
+  fxOverlay.style.opacity = "0";
+}
+
+async function runAnim(step) {
+  if (step === 0) { S[0](); return; }
+
+  if (step === 1) {
+    // デス・ザ・キャノンがriseで登場→エフェクト→メタルガルルモン赤く
+    deathSlot.style.opacity   = "1";
+    deathSlot.style.transform = "translateY(40px) scale(.9)";
+    deathSlot.style.filter    = "blur(2px)";
+    await sleep(30);
+    deathSlot.style.transition = "transform .4s ease, filter .3s ease";
+    deathSlot.style.transform  = "";
+    deathSlot.style.filter     = "none";
+    await sleep(420);
+    deathSlot.style.transition = "";
+    await sleep(200);
+    await playDeathFx();
+    metalCard.style.animation = "blink .8s linear 1";
+    metalCard.style.boxShadow = RED;
+    await sleep(820);
+    S[1](); return;
+  }
+
+  if (step === 2) {
+    // 回避エフェクト→レスト回転→銀色に光る
+    await playFxAnim();
+    metalCard.style.transition = "transform .5s cubic-bezier(.4,0,.2,1)";
+    metalCard.style.transform  = METAL_REST;
+    await sleep(520);
+    metalCard.style.transition = "";
+    S[2](); return;
+  }
+}
+
+async function goTo(step, instant = false) {
+  cur = step; updateText(); updateBtns();
+  if (instant) { S[step](); return; }
+  await runAnim(step);
+}
+
+nextBtn.addEventListener("click", async () => {
+  if (locked || cur >= TOTAL - 1) return;
+  document.getElementById("board").scrollIntoView({behavior:"smooth", block:"start"});
+  playing = false; locked = true;
+  await goTo(cur + 1, false);
+  locked = false; updateBtns();
+});
+prevBtn.addEventListener("click", async () => {
+  if (locked || cur <= 0) return;
+  playing = false; locked = true;
+  await goTo(cur - 1, true);
+  locked = false; updateBtns();
+});
+playBtn.addEventListener("click", async () => {
+  if (locked || playing || cur >= TOTAL - 1) return;
+  document.getElementById("board").scrollIntoView({behavior:"smooth", block:"start"});
+  playing = true;
+  while (playing && cur < TOTAL - 1) {
+    await sleep(1800); if (!playing) break;
+    locked = true; await goTo(cur + 1, false); locked = false; updateBtns();
+  }
+  playing = false;
+});
+resetBtn.addEventListener("click", async () => {
+  playing = false; locked = false;
+  await goTo(0, true); updateBtns();
+});
+
+goTo(0, true);
+</script>
+</body>
+</html>
