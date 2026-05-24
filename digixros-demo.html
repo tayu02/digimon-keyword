@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>デジクロス</title>
+<style>
+  :root{ --bg:#08111f; --text:#e9f1ff; --muted:#9eb2d0; --gold:#ffd56a; }
+  *{box-sizing:border-box} html,body{height:100%;margin:0}
+  body{
+    font-family:system-ui,-apple-system,sans-serif;
+    background:radial-gradient(circle at top,#18263f,var(--bg) 62%);
+    color:var(--text);overflow-x:hidden;
+  }
+  .wrap{min-height:100%;padding:12px;display:grid;place-items:center}
+  .scene{
+    width:min(700px,100%);
+    background:rgba(10,18,32,.86);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:20px;padding:12px;
+    box-shadow:0 18px 50px rgba(0,0,0,.42);
+  }
+  .top{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+  .title{font-size:17px;font-weight:800}
+  .controls{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  button{
+    border:0;border-radius:10px;padding:5px 6px;min-height:26px;
+    font-weight:700;font-size:13px;cursor:pointer;
+    color:var(--text);background:#2a3d63;transition:opacity .15s;
+  }
+  button:disabled{opacity:.35;cursor:default}
+  button.primary{background:linear-gradient(90deg,#ff6a6a,#ff9c6a)}
+
+  .board{
+    background:rgba(17,27,46,.86);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:18px;padding:12px;
+    position:relative;overflow:hidden;
+  }
+  .area-label{
+    font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:6px;
+  }
+
+  /* 手札エリア */
+  .hand-area{
+    padding:8px 0 10px;
+    border-bottom:1px dashed rgba(255,255,255,.1);
+  }
+  .hand-slot{
+    width:100%;
+    height:151px;
+    position:relative;
+    /* 4枚を横に20pxずつズラして重ねる */
+  }
+  .hand-card{
+    position:absolute;
+    width:108px;height:151px;
+    top:0;
+    border-radius:12px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 8px 16px rgba(0,0,0,.5);
+    background:#09111f;
+    transform-origin:center center;
+    transition:opacity .4s ease, box-shadow .3s ease, transform .4s ease;
+  }
+  .hand-card img{width:100%;height:100%;object-fit:cover;display:block}
+  /* 4枚を中央寄せで横に並べる。カード幅108px、ズレ24px→全幅108+24*3=180px、左端=(100%-180px)/2 */
+  #hc1{ left:calc(50% - 90px + 0px);  z-index:4; }
+  #hc2{ left:calc(50% - 90px + 24px); z-index:3; }
+  #hc3{ left:calc(50% - 90px + 48px); z-index:2; }
+  #hc4{ left:calc(50% - 90px + 72px); z-index:1; }
+
+  .divider{text-align:center;font-size:11px;color:rgba(158,178,208,.35);padding:5px 0}
+
+  /* バトルエリア：メタルマメモン（スタック）＋ムゲンドラモンスタック */
+  .battle-area{
+    display:flex;justify-content:center;align-items:flex-start;
+    gap:24px;padding:10px 0 4px;
+    min-height:200px;
+  }
+
+  /* スタックスロット */
+  .stack-wrap{
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    flex:0 0 auto;
+  }
+  .stack-label{font-size:10px;color:var(--muted);letter-spacing:.06em;}
+  .stack-slot{
+    width:108px;height:185px;
+    position:relative;
+  }
+  .stack-card{
+    position:absolute;
+    width:108px;height:151px;
+    left:0;
+    border-radius:12px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 8px 16px rgba(0,0,0,.42);
+    background:#09111f;
+    transform-origin:center center;
+    transition:opacity .4s ease, box-shadow .3s ease;
+  }
+  .stack-card img{width:100%;height:100%;object-fit:cover;display:block}
+  /* メタルマメモン（上）・ペイルドラモン（下） */
+  #pale{ top:20px; z-index:1; filter:brightness(.75); }
+  #mame{ top:0px;  z-index:2; }
+
+  /* ムゲンドラモンスタック（デジクロス後） */
+  /* 進化元5枚＋ムゲンドラモン */
+  .mugen-slot{
+    width:108px;height:210px;
+    position:relative;
+  }
+  .evo-card{
+    position:absolute;
+    width:108px;height:151px;
+    left:0;
+    border-radius:12px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 8px 16px rgba(0,0,0,.42);
+    background:#09111f;
+    opacity:0;
+    transition:opacity .4s ease, box-shadow .3s ease;
+  }
+  .evo-card img{width:100%;height:100%;object-fit:cover;display:block}
+  #ev5{ top:80px; z-index:1; filter:brightness(.6); }
+  #ev4{ top:60px; z-index:2; filter:brightness(.72); }
+  #ev3{ top:40px; z-index:3; filter:brightness(.82); }
+  #ev2{ top:20px; z-index:4; filter:brightness(.92); }
+  #ev1{ top:0px;  z-index:5; }
+  #mugen{ top:-22px; z-index:6; }
+
+  /* エフェクト */
+  .fx-overlay{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    pointer-events:none;z-index:20;opacity:0;
+  }
+  .fx-bg{
+    position:absolute;inset:0;
+    background:radial-gradient(ellipse at center,rgba(80,160,255,.22) 0%,rgba(80,160,255,.08) 45%,transparent 72%);
+    opacity:0;
+  }
+  .fx-ring{position:absolute;width:56px;height:56px;border-radius:50%;border:2px solid rgba(80,160,255,.95);opacity:0;}
+  .fx-word{
+    position:relative;font-size:clamp(24px,7vw,42px);font-weight:900;
+    letter-spacing:.1em;color:#fff;
+    text-shadow:0 0 24px rgba(80,160,255,1),0 0 48px rgba(80,160,255,.8),0 2px 8px rgba(0,0,0,1);
+    opacity:0;transform:scale(.65);
+  }
+  .fx-sub{
+    position:relative;font-size:12px;font-weight:700;
+    letter-spacing:.2em;color:rgba(255,255,255,.7);
+    margin-top:6px;opacity:0;transform:translateY(8px);
+  }
+  @keyframes fxBg  {0%{opacity:0}25%{opacity:1}75%{opacity:1}100%{opacity:0}}
+  @keyframes fxRing {0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(4)}}
+  @keyframes fxWord {
+    0%{opacity:0;transform:scale(.65)}18%{opacity:1;transform:scale(1.1)}
+    32%{transform:scale(1)}78%{opacity:1}100%{opacity:0;transform:scale(1)}
+  }
+  @keyframes fxSub{
+    0%{opacity:0;transform:translateY(8px)}22%{opacity:1;transform:translateY(0)}
+    78%{opacity:1}100%{opacity:0}
+  }
+  @keyframes glowGold{
+    0%,100%{box-shadow:0 0 0 2px rgba(255,255,255,.14),0 0 20px rgba(255,214,106,.65),0 0 42px rgba(255,214,106,.3),0 10px 20px rgba(0,0,0,.42)}
+    50%    {box-shadow:0 0 0 3px rgba(255,255,255,.2) ,0 0 32px rgba(255,214,106,.9) ,0 0 58px rgba(255,214,106,.48),0 10px 20px rgba(0,0,0,.42)}
+  }
+  @keyframes rise{
+    0%{transform:translateY(60px) scale(.88);opacity:0;filter:blur(2px)}
+    100%{transform:translateY(0);opacity:1;filter:none}
+  }
+  @keyframes fallDown{
+    0%{opacity:1;filter:brightness(.75)}
+    40%{opacity:.5}
+    100%{transform:translateY(60px) scale(.82);opacity:0;filter:blur(3px)}
+  }
+
+  .inline-log{
+    margin-top:10px;border-top:1px solid rgba(255,255,255,.08);
+    padding-top:10px;display:flex;flex-direction:column;gap:7px;
+  }
+  .info-box{
+    padding:12px 14px;border-radius:14px;
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);
+    font-size:14px;line-height:1.6;color:var(--text);
+  }
+  .info-box strong{
+    display:block;font-size:12px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--gold);margin-bottom:5px;
+  }
+  .info-flow{font-size:11px;color:rgba(158,178,208,.45);text-align:center;padding:2px 0;}
+  .fade-in{animation:fadeIn .22s ease both}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+  @media(min-width:860px){
+    .top{flex-direction:row;justify-content:space-between;align-items:center}
+    .controls{width:min(340px,100%)}
+  }
+</style>
+</head>
+<body>
+<div class="wrap"><div class="scene">
+  <div class="top">
+    <div class="title">デジクロス</div>
+    <div class="controls">
+      <button id="prevBtn">前へ</button>
+      <button id="nextBtn" class="primary">次へ</button>
+      <button id="playBtn">再生</button>
+      <button id="resetBtn">リセット</button>
+    </div>
+  </div>
+
+  <div class="board" id="board">
+
+    <div class="divider">── バトルエリア ──</div>
+
+    <div class="battle-area">
+
+      <!-- メタルマメモン＋ペイルドラモン -->
+      <div class="stack-wrap" id="mameWrap">
+        <div class="stack-label">バトルエリア</div>
+        <div class="stack-slot">
+          <div class="stack-card" id="pale">
+            <img src="https://tayu02.github.io/digimon-keyword/digimon/EX7-020.png" alt="ペイルドラモン">
+          </div>
+          <div class="stack-card" id="mame">
+            <img src="https://tayu02.github.io/digimon-keyword/digimon/EX9-018.png" alt="メタルマメモン">
+          </div>
+        </div>
+      </div>
+
+      <!-- ムゲンドラモンスタック（デジクロス後） -->
+      <div class="stack-wrap" id="mugenWrap" style="display:none">
+        <div class="stack-label">バトルエリア</div>
+        <div class="mugen-slot">
+          <div class="evo-card" id="ev5">
+            <img src="https://tayu02.github.io/digimon-keyword/digimon/EX9-064.png" alt="">
+          </div>
+          <div class="evo-card" id="ev4">
+            <img src="https://tayu02.github.io/digimon-keyword/digimon/EX9-043.png" alt="">
+          </div>
+          <div class="evo-card" id="ev3">
+            <img src="https://tayu02.github.io/digimon-keyword/digimon/EX9-030.png" alt="">
+          </div>
+          <div class="evo-card" id="ev2">
+            <img src="https://tayu02.github.io/digimon-keyword/digimon/EX9-011.png" alt="">
+          </div>
+          <div class="evo-card" id="ev1">
+            <img src="https://tayu02.github.io/digimon-keyword/digimon/EX9-018.png" alt="">
+          </div>
+          <div class="evo-card" id="mugen">
+            <img src="https://tayu02.github.io/digimon-keyword/digimon/BT19-065.png" alt="">
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 手札エリア -->
+    <div class="area-label" style="margin-top:8px">手札</div>
+    <div class="hand-area">
+      <div class="hand-slot" id="handSlot">
+        <div class="hand-card" id="hc1">
+          <img src="https://tayu02.github.io/digimon-keyword/digimon/EX9-011.png" alt="メタルグレイモン">
+        </div>
+        <div class="hand-card" id="hc2">
+          <img src="https://tayu02.github.io/digimon-keyword/digimon/EX9-043.png" alt="メタルティラノモン">
+        </div>
+        <div class="hand-card" id="hc3">
+          <img src="https://tayu02.github.io/digimon-keyword/digimon/EX9-030.png" alt="アンドロモン">
+        </div>
+        <div class="hand-card" id="hc4">
+          <img src="https://tayu02.github.io/digimon-keyword/digimon/EX9-064.png" alt="メガドラモン">
+        </div>
+      </div>
+    </div>
+
+    <!-- デジクロスエフェクト -->
+    <div class="fx-overlay" id="fxOverlay">
+      <div class="fx-bg"   id="fxBg"></div>
+      <div class="fx-ring" id="fxRing"></div>
+      <div class="fx-word" id="fxWord">デジクロス</div>
+      <div class="fx-sub"  id="fxSub">DIGIXROS</div>
+    </div>
+
+    <div class="inline-log">
+      <div class="info-box" id="infoBox">
+        <strong id="infoTitle"></strong>
+        <span   id="infoText"></span>
+      </div>
+      <div class="info-flow">手札4枚＋盤面メタルマメモンを進化元に → ペイルドラモン消滅 → 5コスト軽減 → ムゲンドラモン登場</div>
+    </div>
+  </div>
+</div></div>
+
+<script>
+const board     = document.getElementById("board");
+const hc1       = document.getElementById("hc1");
+const hc2       = document.getElementById("hc2");
+const hc3       = document.getElementById("hc3");
+const hc4       = document.getElementById("hc4");
+const mame      = document.getElementById("mame");
+const pale      = document.getElementById("pale");
+const mameWrap  = document.getElementById("mameWrap");
+const mugenWrap = document.getElementById("mugenWrap");
+const ev1       = document.getElementById("ev1");
+const ev2       = document.getElementById("ev2");
+const ev3       = document.getElementById("ev3");
+const ev4       = document.getElementById("ev4");
+const ev5       = document.getElementById("ev5");
+const mugen     = document.getElementById("mugen");
+const fxOverlay = document.getElementById("fxOverlay");
+const fxBg      = document.getElementById("fxBg");
+const fxRing    = document.getElementById("fxRing");
+const fxWord    = document.getElementById("fxWord");
+const fxSub     = document.getElementById("fxSub");
+const infoBox   = document.getElementById("infoBox");
+const infoTitle = document.getElementById("infoTitle");
+const infoText  = document.getElementById("infoText");
+const nextBtn   = document.getElementById("nextBtn");
+const prevBtn   = document.getElementById("prevBtn");
+const playBtn   = document.getElementById("playBtn");
+const resetBtn  = document.getElementById("resetBtn");
+
+const handCards = [hc1,hc2,hc3,hc4];
+const evoCards  = [ev1,ev2,ev3,ev4,ev5];
+
+let cur = 0, locked = false, playing = false;
+const TOTAL = 2;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const GOLD = "0 0 0 2px rgba(255,255,255,.14),0 0 22px rgba(255,214,106,.7),0 0 44px rgba(255,214,106,.35),0 10px 20px rgba(0,0,0,.42)";
+
+const steps = [
+  { title:"① 初期状態",
+    text :"手札にメタルグレイモン・メタルティラノモン・アンドロモン・メガドラモンの4枚があります。バトルエリアにはメタルマメモンがいて、進化元にペイルドラモンがいます。" },
+  { title:"② デジクロス発動・ムゲンドラモン登場",
+    text :"デジクロスが発動します。手札の4枚とバトルエリアのメタルマメモンを進化元に入れることで5コスト軽減し、ムゲンドラモンが登場します。なお、メタルマメモンの進化元にいたペイルドラモンはこのタイミングで消滅します。" },
+];
+
+function resetAll() {
+  handCards.forEach(c => { c.style.opacity = "1"; c.style.transform = ""; c.style.boxShadow = ""; });
+  mame.style.opacity    = "1";
+  mame.style.animation  = "none";
+  mame.style.boxShadow  = "";
+  pale.style.opacity    = "1";
+  pale.style.animation  = "none";
+  mameWrap.style.display  = "flex";
+  mugenWrap.style.display = "none";
+  evoCards.forEach(c => { c.style.opacity = "0"; c.style.boxShadow = ""; });
+  mugen.style.opacity   = "0";
+  mugen.style.animation = "none";
+  mugen.style.boxShadow = "";
+  fxOverlay.style.opacity = "0";
+}
+
+const S = [
+  () => { resetAll(); },
+  () => {
+    resetAll();
+    handCards.forEach(c => { c.style.opacity = "0"; });
+    mameWrap.style.display  = "none";
+    mugenWrap.style.display = "flex";
+    evoCards.forEach(c => { c.style.opacity = "1"; });
+    mugen.style.opacity   = "1";
+    mugen.style.animation = "glowGold 1.4s ease infinite";
+    mugen.style.boxShadow = GOLD;
+  },
+];
+
+function updateText() {
+  const d = steps[cur];
+  infoBox.classList.remove("fade-in");
+  void infoBox.offsetWidth;
+  infoTitle.textContent = d.title;
+  infoText.textContent  = d.text;
+  infoBox.classList.add("fade-in");
+}
+function updateBtns() {
+  prevBtn.disabled = cur === 0;
+  nextBtn.disabled = cur === TOTAL - 1;
+  playBtn.disabled = cur === TOTAL - 1;
+}
+
+async function playFxAnim() {
+  fxOverlay.style.opacity = "1";
+  [fxBg,fxRing,fxWord,fxSub].forEach(el=>{el.style.animation="none";void el.offsetWidth;});
+  fxBg.style.animation   = "fxBg   1.4s ease forwards";
+  fxRing.style.animation = "fxRing .85s ease-out forwards";
+  fxWord.style.animation = "fxWord 1.4s ease forwards";
+  fxSub.style.animation  = "fxSub  1.4s ease forwards";
+  await sleep(1450);
+  fxOverlay.style.opacity = "0";
+}
+
+async function runAnim(step) {
+  if (step === 0) { S[0](); return; }
+
+  if (step === 1) {
+    // デジクロスエフェクト
+    await playFxAnim();
+    // ペイルドラモン消滅
+    pale.style.animation = "fallDown .4s ease forwards";
+    await sleep(300);
+    // 手札が1枚ずつ消える
+    for (let i = 0; i < 4; i++) {
+      handCards[i].style.opacity = "0";
+      await sleep(250);
+    }
+    // メタルマメモン消える・mugenWrap表示
+    mame.style.opacity  = "0";
+    mameWrap.style.display = "none";
+    mugenWrap.style.display = "flex";
+    // 進化元が下から順に登場
+    for (let i = 0; i < 5; i++) {
+      evoCards[i].style.opacity = "1";
+      await sleep(200);
+    }
+    // ムゲンドラモンがriseで登場
+    mugen.style.opacity   = "1";
+    mugen.style.transform = "translateY(60px) scale(.88)";
+    mugen.style.filter    = "blur(2px)";
+    mugen.style.animation = "none";
+    await sleep(30);
+    mugen.style.animation = "rise .5s ease forwards";
+    await sleep(520);
+    mugen.style.filter    = "none";
+    mugen.style.transform = "";
+    S[1](); return;
+  }
+}
+
+async function goTo(step, instant = false) {
+  cur = step; updateText(); updateBtns();
+  if (instant) { S[step](); return; }
+  await runAnim(step);
+}
+
+nextBtn.addEventListener("click", async () => {
+  if (locked || cur >= TOTAL - 1) return;
+  document.getElementById("board").scrollIntoView({behavior:"smooth", block:"start"});
+  playing = false; locked = true;
+  await goTo(cur + 1, false);
+  locked = false; updateBtns();
+});
+prevBtn.addEventListener("click", async () => {
+  if (locked || cur <= 0) return;
+  playing = false; locked = true;
+  await goTo(cur - 1, true);
+  locked = false; updateBtns();
+});
+playBtn.addEventListener("click", async () => {
+  if (locked || playing || cur >= TOTAL - 1) return;
+  document.getElementById("board").scrollIntoView({behavior:"smooth", block:"start"});
+  playing = true;
+  while (playing && cur < TOTAL - 1) {
+    await sleep(1800); if (!playing) break;
+    locked = true; await goTo(cur + 1, false); locked = false; updateBtns();
+  }
+  playing = false;
+});
+resetBtn.addEventListener("click", async () => {
+  playing = false; locked = false;
+  await goTo(0, true); updateBtns();
+});
+
+goTo(0, true);
+</script>
+</body>
+</html>
