@@ -42,25 +42,75 @@
     color:var(--muted);margin-bottom:6px;
   }
   .my-area{
-    display:flex;justify-content:center;align-items:flex-start;
+    display:flex;justify-content:center;
     padding:10px 0 4px;
-    min-height:220px;
+    min-height:280px;
   }
 
   /*
-    アプリンク表現：
-    リバイブモン（縦）の右にバイオモンが横向き（rotate(90deg)）で
-    カードの左端がリバイブモンの右端に半分重なるイメージ。
-    スロット全体で表現。
+    スロット全体：
+    リバイブモン 108×151
+    バイオモン アプリンク時：-90度回転で左上を合わせる
+      rotate(-90deg)後の見た目サイズ：幅151px、高さ108px
+      左上を合わせる → transform-origin:top left で回転
+    アプ合体後：バイオモンが縦向きでリバイブモンの上に14pxズレて重なる
+    ハデスモン：バイオモンの上にさらに14pxズレて重なる
   */
   .applink-slot{
     position:relative;
-    width:240px;
-    height:160px;
+    width:270px;
+    height:280px;
   }
 
   /* リバイブモン */
   #reviveCard{
+    position:absolute;
+    width:108px;height:151px;
+    left:0;top:28px;
+    border-radius:12px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 10px 20px rgba(0,0,0,.42);
+    background:#09111f;
+    transform-origin:top left;
+    transition:box-shadow .3s ease, opacity .4s ease, top .4s ease;
+    z-index:2;
+  }
+  #reviveCard img{width:100%;height:100%;object-fit:cover;display:block}
+
+  #bioCard{
+    position:absolute;
+    width:108px;height:151px;
+    left:20px;top:-20px;
+    border-radius:12px;overflow:hidden;
+    border:1px solid rgba(255,180,255,.4);
+    box-shadow:0 10px 20px rgba(0,0,0,.42);
+    background:#09111f;
+    transform-origin:center center;
+    transform:rotate(-90deg);
+    opacity:0;
+    transition:opacity .4s ease, box-shadow .3s ease;
+    z-index:1;
+  }
+  #bioCard img{width:100%;height:100%;object-fit:cover;display:block}
+
+  /* バイオモン（アプ合体後：進化元としてリバイブモンの上に縦で重なる） */
+  #bioEvo{
+    position:absolute;
+    width:108px;height:151px;
+    left:0;top:14px;
+    border-radius:12px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 8px 16px rgba(0,0,0,.42);
+    background:#09111f;
+    opacity:0;
+    z-index:3;
+    filter:brightness(.75);
+    transition:opacity .4s ease;
+  }
+  #bioEvo img{width:100%;height:100%;object-fit:cover;display:block}
+
+  /* ハデスモン（アプ合体後：一番上） */
+  #hadesCard{
     position:absolute;
     width:108px;height:151px;
     left:0;top:0;
@@ -68,66 +118,12 @@
     border:1px solid rgba(255,255,255,.14);
     box-shadow:0 10px 20px rgba(0,0,0,.42);
     background:#09111f;
-    transform-origin:center center;
-    transition:box-shadow .3s ease, filter .25s ease, opacity .4s ease;
-    z-index:2;
-  }
-  #reviveCard img{width:100%;height:100%;object-fit:cover;display:block}
-
-  /*
-    バイオモン（アプリンク）
-    反時計回り90度回転・リバイブモン右側に差し込み
-    rotate(-90deg)すると元108×151が幅151×高さ108になる
-    left: リバイブモン右端(108) - 少し重なり(30) = 78
-    top:  中心を合わせる = (151-108)/2 = 21.5 → 約20px
-  */
-  #bioCard{
-    position:absolute;
-    width:108px;height:151px;
-    left:78px;top:20px;
-    border-radius:12px;overflow:hidden;
-    border:1px solid rgba(255,180,255,.3);
-    box-shadow:0 10px 20px rgba(0,0,0,.42);
-    background:#09111f;
-    transform-origin:center center;
-    transform:rotate(-90deg);
+    transform-origin:top left;
     opacity:0;
-    transition:opacity .4s ease, box-shadow .3s ease;
-    z-index:3;
-  }
-  #bioCard img{width:100%;height:100%;object-fit:cover;display:block}
-
-  /* ハデスモン（アプ合体後） */
-  #hadesCard{
-    position:absolute;
-    width:108px;height:151px;
-    left:0;top:-14px;
-    border-radius:12px;overflow:hidden;
-    border:1px solid rgba(255,255,255,.14);
-    box-shadow:0 10px 20px rgba(0,0,0,.42);
-    background:#09111f;
-    transform-origin:center center;
-    opacity:0;
-    transition:box-shadow .3s ease, filter .25s ease, opacity .4s ease;
+    transition:box-shadow .3s ease, opacity .4s ease;
     z-index:4;
   }
   #hadesCard img{width:100%;height:100%;object-fit:cover;display:block}
-
-  /* バイオモン（アプ合体後：ズレて重なる進化元） */
-  #bioEvo{
-    position:absolute;
-    width:108px;height:151px;
-    left:0;top:0px;
-    border-radius:12px;overflow:hidden;
-    border:1px solid rgba(255,255,255,.14);
-    box-shadow:0 8px 16px rgba(0,0,0,.42);
-    background:#09111f;
-    opacity:0;
-    z-index:1;
-    filter:brightness(.8);
-    transition:opacity .4s ease;
-  }
-  #bioEvo img{width:100%;height:100%;object-fit:cover;display:block}
 
   /* エフェクト */
   .fx-overlay{
@@ -209,7 +205,7 @@
   <div class="board" id="board">
     <div class="area-label">自分のバトルエリア</div>
     <div class="my-area">
-      <div class="applink-slot" id="applinkSlot">
+      <div class="applink-slot">
 
         <!-- バイオモン（アプ合体後の進化元） -->
         <div id="bioEvo">
@@ -221,7 +217,7 @@
           <img src="https://tayu02.github.io/digimon-keyword/digimon/BT24-077.png" alt="">
         </div>
 
-        <!-- バイオモン（アプリンク：横向き差し込み） -->
+        <!-- バイオモン（アプリンク：-90度・左上合わせ） -->
         <div id="bioCard">
           <img src="https://tayu02.github.io/digimon-keyword/digimon/BT24-038.png" alt="">
         </div>
@@ -234,7 +230,6 @@
       </div>
     </div>
 
-    <!-- アプ合体エフェクト -->
     <div class="fx-overlay" id="fxOverlay">
       <div class="fx-bg"   id="fxBg"></div>
       <div class="fx-ring" id="fxRing"></div>
@@ -247,13 +242,12 @@
         <strong id="infoTitle"></strong>
         <span   id="infoText"></span>
       </div>
-      <div class="info-flow">リバイブモン登場 → アプリンク（バイオモン横刺し）→ アプ合体 → ハデスモン進化</div>
+      <div class="info-flow">リバイブモン登場 → アプリンク（バイオモン差し込み）→ アプ合体 → ハデスモン進化</div>
     </div>
   </div>
 </div></div>
 
 <script>
-const board      = document.getElementById("board");
 const reviveCard = document.getElementById("reviveCard");
 const bioCard    = document.getElementById("bioCard");
 const hadesCard  = document.getElementById("hadesCard");
@@ -282,18 +276,18 @@ const steps = [
   { title:"① リバイブモン登場",
     text :"リバイブモンがバトルエリアにいます。" },
   { title:"② アプリンク",
-    text :"バイオモンをリバイブモンに横向きで差し込み、アプリンクさせます。アプリンクしている間、効果やDPが上昇します。" },
+    text :"バイオモンをリバイブモンに差し込み、アプリンクさせます。バイオモンは-90度回転した状態でリバイブモンの左上に角を合わせて差し込まれます。アプリンクしている間、効果やDPが上昇します。" },
   { title:"③ アプ合体発動",
-    text :"指定のデジモンがアプリンクしている時、アプ合体が発動します。横向きに刺していたバイオモンがリバイブモンの上にズレて重なり、その上にハデスモンに進化します。" },
+    text :"指定のデジモンがアプリンクしている時、アプ合体が発動します。バイオモンが縦向きに戻ってリバイブモンの上に重なり、さらにその上にハデスモンに進化します。" },
 ];
 
 function resetAll() {
   reviveCard.style.animation = "none";
   reviveCard.style.boxShadow = "";
   reviveCard.style.opacity   = "1";
+  reviveCard.style.top       = "0px";
   bioCard.style.opacity      = "0";
   bioCard.style.transform    = "rotate(-90deg)";
-  bioCard.style.left         = "78px";
   bioCard.style.boxShadow    = "";
   hadesCard.style.opacity    = "0";
   hadesCard.style.animation  = "none";
@@ -303,25 +297,29 @@ function resetAll() {
 }
 
 const S = [
-  // 0: リバイブモンのみ
   () => {
     resetAll();
     reviveCard.style.animation = "glowGold 1.4s ease infinite";
     reviveCard.style.boxShadow = GOLD;
   },
-  // 1: バイオモン右側差し込み
   () => {
     resetAll();
     reviveCard.style.animation = "glowGold 1.4s ease infinite";
     reviveCard.style.boxShadow = GOLD;
     bioCard.style.opacity      = "1";
     bioCard.style.transform    = "rotate(-90deg)";
-    bioCard.style.boxShadow    = "0 0 0 2px rgba(255,180,255,.3),0 0 16px rgba(200,100,255,.5),0 10px 20px rgba(0,0,0,.42)";
+    bioCard.style.boxShadow    = "0 0 0 2px rgba(255,180,255,.4),0 0 16px rgba(200,100,255,.5),0 10px 20px rgba(0,0,0,.42)";
   },
-  // 2: アプ合体後・バイオモンが進化元・ハデスモン登場
+  // 2: ハデスモン（top:0）・バイオモン（top:14px）・リバイブモン（top:28px）の3枚スタック
   () => {
     resetAll();
+    reviveCard.style.opacity   = "1";
+    reviveCard.style.top       = "28px";
+    reviveCard.style.boxShadow = "";
+    reviveCard.style.animation = "none";
     bioEvo.style.opacity       = "1";
+    bioEvo.style.top           = "14px";
+    hadesCard.style.top        = "0px";
     hadesCard.style.opacity    = "1";
     hadesCard.style.animation  = "glowPurple 1.4s ease infinite";
     hadesCard.style.boxShadow  = PURPLE;
@@ -357,22 +355,28 @@ async function runAnim(step) {
   if (step === 0) { S[0](); return; }
 
   if (step === 1) {
-    // バイオモンが右からフェードインして差し込まれる
     bioCard.style.opacity    = "1";
     bioCard.style.transition = "opacity .4s ease";
     await sleep(420);
     bioCard.style.transition = "";
-    bioCard.style.boxShadow  = "0 0 0 2px rgba(255,180,255,.3),0 0 16px rgba(200,100,255,.5),0 10px 20px rgba(0,0,0,.42)";
+    bioCard.style.boxShadow  = "0 0 0 2px rgba(255,180,255,.4),0 0 16px rgba(200,100,255,.5),0 10px 20px rgba(0,0,0,.42)";
     S[1](); return;
   }
 
   if (step === 2) {
     await playFxAnim();
-    bioCard.style.transition = "opacity .4s ease";
+    // バイオモンが縦向きに戻ってリバイブモンの上に移動
+    bioCard.style.transition = "transform .5s cubic-bezier(.4,0,.2,1), left .5s ease, top .5s ease, opacity .4s ease";
+    bioCard.style.transform  = "rotate(0deg)";
+    bioCard.style.left       = "0px";
+    bioCard.style.top        = "14px";
+    await sleep(520);
     bioCard.style.opacity    = "0";
+    bioEvo.style.top         = "14px";
     bioEvo.style.opacity     = "1";
-    await sleep(420);
+    await sleep(300);
     bioCard.style.transition = "";
+    // ハデスモンが最上に登場
     hadesCard.style.opacity   = "1";
     hadesCard.style.animation = "glowPurple 1.4s ease infinite";
     hadesCard.style.boxShadow = PURPLE;
